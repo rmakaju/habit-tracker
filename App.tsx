@@ -22,6 +22,7 @@ import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { habitStorage } from './utils/storage';
 import { NotificationService } from './utils/notifications';
 import { Habit, HabitCategory, AppSettings } from './types';
+import { PlatformConstants } from './utils/platformUtils';
 
 // Main App Component with Enhanced Features
 function MainApp() {
@@ -37,15 +38,20 @@ function MainApp() {
   const [animatedValues] = useState(new Map<string, Animated.Value>());
 
   useEffect(() => {
-    loadData();
-    initializeNotifications();
+    const initializeApp = async () => {
+      await loadData();
+      await initializeNotifications();
+    };
+    
+    initializeApp();
   }, [refreshKey]);
 
   const initializeNotifications = async () => {
     await NotificationService.requestPermissions();
   };
 
-  const loadData = () => {
+  const loadData = async () => {
+    await habitStorage.waitForInitialization();
     setHabits(habitStorage.getHabits());
     setCategories(habitStorage.getCategories());
     refreshTheme(); // Refresh theme settings instead of using setSettings
@@ -332,7 +338,7 @@ function MainApp() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar style={theme.text === '#ffffff' ? 'light' : 'dark'} backgroundColor={theme.background} />
+      <StatusBar style={theme.text === '#ffffff' ? 'light' : 'dark'} />
       
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
@@ -462,7 +468,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: (PlatformConstants.statusBarHeight || 24) + 8,
+    paddingBottom: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#e1e4e8',

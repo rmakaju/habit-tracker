@@ -9,10 +9,12 @@ import {
   ScrollView,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit, HabitCategory } from '../types';
+import { PlatformConstants } from '../utils/platformUtils';
 // Import the new icon theme system (optional)
 // import { ALL_ICONS, ALL_COLORS, suggestIconsForHabit } from '../config/iconThemes';
 
@@ -120,7 +122,7 @@ const PREDEFINED_ICONS = [
   'glasses-outline', // Reading/Focus
   'shirt-outline', // Clothing/Style
   'cut-outline', // Grooming
-  'flower-outline', // Garden
+  'rose-outline', // Garden (changed from duplicate flower-outline)
   'paw-outline', // Pets
   'medical-outline', // Health
   'bandage-outline', // Recovery
@@ -516,7 +518,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: Platform.select({ android: 24, default: 16 }),
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#e1e4e8',
   },

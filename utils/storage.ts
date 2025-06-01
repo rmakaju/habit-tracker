@@ -23,9 +23,18 @@ class HabitStorage {
     SETTINGS: 'habit_tracker_settings'
   };
 
+  private isInitialized = false;
+  private initializationPromise: Promise<void> | null = null;
+
   constructor() {
-    this.loadFromStorage();
+    this.initializationPromise = this.initializeStorage();
+  }
+
+  private async initializeStorage() {
+    await this.loadFromStorage();
     this.initializeDefaultCategories();
+    await this.initializeDemoHabits();
+    this.isInitialized = true;
   }
 
   // Storage persistence methods
@@ -52,11 +61,11 @@ class HabitStorage {
     }
   }
 
-  private loadFromStorage(): void {
+  private async loadFromStorage(): Promise<void> {
     if (Platform.OS === 'web') {
       this.loadFromLocalStorage();
     } else {
-      this.loadFromAsyncStorage();
+      await this.loadFromAsyncStorage();
     }
   }
 
@@ -127,7 +136,7 @@ class HabitStorage {
     }
   }
 
-  private saveToStorage(): void {
+  private async saveToStorage(): Promise<void> {
     if (Platform.OS === 'web') {
       try {
         localStorage.setItem(this.STORAGE_KEYS.HABITS, JSON.stringify(this.habits));
@@ -138,10 +147,14 @@ class HabitStorage {
         console.error('Failed to save data to localStorage:', error);
       }
     } else {
-      AsyncStorage.setItem(this.STORAGE_KEYS.HABITS, JSON.stringify(this.habits)).catch(err => console.error(err));
-      AsyncStorage.setItem(this.STORAGE_KEYS.ENTRIES, JSON.stringify(this.entries)).catch(err => console.error(err));
-      AsyncStorage.setItem(this.STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories)).catch(err => console.error(err));
-      AsyncStorage.setItem(this.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings)).catch(err => console.error(err));
+      try {
+        await AsyncStorage.setItem(this.STORAGE_KEYS.HABITS, JSON.stringify(this.habits));
+        await AsyncStorage.setItem(this.STORAGE_KEYS.ENTRIES, JSON.stringify(this.entries));
+        await AsyncStorage.setItem(this.STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
+        await AsyncStorage.setItem(this.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+      } catch (error) {
+        console.error('Failed to save data to AsyncStorage:', error);
+      }
     }
   }
 
@@ -158,6 +171,89 @@ class HabitStorage {
       ];
       this.saveToStorage();
     }
+  }
+
+  private async initializeDemoHabits(): Promise<void> {
+    // Only initialize demo habits if no habits exist
+    if (this.habits.length === 0) {
+      const demoHabits = [
+        {
+          name: 'Morning Exercise',
+          color: '#26d0ce',
+          icon: 'fitness-outline',
+          createdAt: new Date(),
+          category: '1',
+          frequency: 'daily' as const,
+        },
+        {
+          name: 'Read for 30 minutes',
+          color: '#216e39',
+          icon: 'book-outline',
+          createdAt: new Date(),
+          category: '2',
+          frequency: 'daily' as const,
+        },
+        {
+          name: 'Drink 8 glasses of water',
+          color: '#45b7d1',
+          icon: 'water-outline',
+          createdAt: new Date(),
+          category: '1',
+          frequency: 'daily' as const,
+        },
+        {
+          name: 'Meditate',
+          color: '#6c5ce7',
+          icon: 'moon-outline',
+          createdAt: new Date(),
+          category: '4',
+          frequency: 'daily' as const,
+        },
+      ];
+
+      demoHabits.forEach((habitData, index) => {
+        const newHabit: Habit = {
+          ...habitData,
+          id: `demo_${Date.now()}_${index}`,
+          order: index,
+        };
+        this.habits.push(newHabit);
+      });
+
+      // Add some sample entries for the past few days
+      const today = new Date();
+      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() - dayOffset);
+        const dateString = date.toISOString().split('T')[0];
+        
+        this.habits.forEach((habit, habitIndex) => {
+          // Randomly complete some habits for demo purposes
+          const shouldComplete = Math.random() > 0.3; // 70% completion rate
+          if (shouldComplete) {
+            this.entries.push({
+              habitId: habit.id,
+              date: dateString,
+              completed: true,
+            });
+          }
+        });
+      }
+
+      await this.saveToStorage();
+    }
+  }
+
+  // Ensure storage is initialized before accessing data
+  private async ensureInitialized(): Promise<void> {
+    if (!this.isInitialized && this.initializationPromise) {
+      await this.initializationPromise;
+    }
+  }
+
+  // Public method to wait for initialization
+  async waitForInitialization(): Promise<void> {
+    await this.ensureInitialized();
   }
 
   // Habits management

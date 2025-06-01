@@ -8,10 +8,12 @@ import {
   Modal,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
 import { useTheme } from './ThemeProvider';
+import { PlatformConstants } from '../utils/platformUtils';
 
 interface EditHabitModalProps {
   visible: boolean;
@@ -355,7 +357,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingTop: 60,
+    paddingTop: Platform.select({ android: 64, default: 60 }),
     borderBottomWidth: 1,
   },
   headerButton: {

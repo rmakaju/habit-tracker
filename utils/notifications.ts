@@ -4,15 +4,20 @@ import { Platform } from 'react-native';
 import { Habit } from '../types';
 
 // Configure how notifications are handled when the app is running
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// Wrap in try-catch to handle Expo Go limitations gracefully
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    }),
+  });
+} catch (error) {
+  console.warn('Notification handler setup failed (this is normal in Expo Go):', error);
+}
 
 export class NotificationService {
   static async requestPermissions(): Promise<boolean> {

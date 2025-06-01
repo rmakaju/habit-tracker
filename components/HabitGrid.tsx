@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { AnimationUtils } from '../utils/animations';
 
 interface ContributionSquareProps {
@@ -148,16 +148,16 @@ const styles = StyleSheet.create({
   },
   grid: {
     flexDirection: 'row',
-    gap: 2,
+    gap: Platform.select({ android: 3, default: 2 }),
   },
   week: {
     flexDirection: 'column',
-    gap: 2,
+    gap: Platform.select({ android: 3, default: 2 }),
   },
   square: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
+    width: Platform.select({ android: 14, default: 12 }),
+    height: Platform.select({ android: 14, default: 12 }),
+    borderRadius: Platform.select({ android: 3, default: 2 }),
   },
   emptySquare: {
     backgroundColor: '#ebedf0',
@@ -180,8 +180,8 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   legendSquare: {
-    width: 10,
-    height: 10,
-    borderRadius: 2,
+    width: Platform.select({ android: 12, default: 10 }),
+    height: Platform.select({ android: 12, default: 10 }),
+    borderRadius: Platform.select({ android: 3, default: 2 }),
   },
 });

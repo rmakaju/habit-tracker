@@ -6,9 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
+import { useTheme } from './ThemeProvider';
+import { PlatformConstants } from '../utils/platformUtils';
 
 interface HabitListProps {
   habits: Habit[];
@@ -26,6 +29,7 @@ export const HabitList: React.FC<HabitListProps> = ({
   onToggleEntry,
   getHabitEntries,
 }) => {
+  const { theme } = useTheme();
   const today = new Date().toISOString().split('T')[0];
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -48,7 +52,7 @@ export const HabitList: React.FC<HabitListProps> = ({
     const todayCompleted = entries[today] || false;
 
     return (
-      <View style={styles.habitItem}>
+      <View style={[styles.habitItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.habitInfo}>
           <View style={styles.habitHeader}>
             <View style={[styles.colorIndicator, { backgroundColor: habit.color }]}>
@@ -60,23 +64,23 @@ export const HabitList: React.FC<HabitListProps> = ({
                 />
               )}
             </View>
-            <Text style={styles.habitName}>{habit.name}</Text>
+            <Text style={[styles.habitName, { color: theme.text }]}>{habit.name}</Text>
             {habit.category && (
-              <Text style={styles.category}>#{habit.category}</Text>
+              <Text style={[styles.category, { backgroundColor: theme.surface, color: theme.textSecondary }]}>#{habit.category}</Text>
             )}
           </View>
           
           {habit.tags && habit.tags.length > 0 && (
             <View style={styles.tagsContainer}>
               {habit.tags.map((tag) => (
-                <Text key={tag} style={styles.tag}>
+                <Text key={tag} style={[styles.tag, { backgroundColor: theme.primary + '20', color: theme.primary }]}>
                   {tag}
                 </Text>
               ))}
             </View>
           )}
 
-          <Text style={styles.frequency}>
+          <Text style={[styles.frequency, { color: theme.textSecondary }]}>
             {habit.frequency === 'daily' && 'Daily'}
             {habit.frequency === 'weekly' && 'Weekly'}
             {habit.frequency === 'custom' && `${habit.customFrequency}x per week`}
@@ -88,12 +92,13 @@ export const HabitList: React.FC<HabitListProps> = ({
             style={styles.editButton}
             onPress={() => onEditHabit(habit)}
           >
-            <Ionicons name="pencil" size={16} color="#666" />
+            <Ionicons name="pencil" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
               styles.todayButton,
+              { borderColor: theme.border },
               todayCompleted && { backgroundColor: habit.color },
             ]}
             onPress={() => onToggleEntry(habit.id, today)}
@@ -117,17 +122,17 @@ export const HabitList: React.FC<HabitListProps> = ({
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>All Habits</Text>
-        <Text style={styles.subtitle}>Tap + to complete today, or view grid for history</Text>
+    <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
+      <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+        <Text style={[styles.title, { color: theme.text }]}>All Habits</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap + to complete today, or view grid for history</Text>
       </View>
 
       {habits.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="leaf-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyTitle}>No habits yet</Text>
-          <Text style={styles.emptySubtitle}>Add your first habit to get started!</Text>
+          <Ionicons name="leaf-outline" size={64} color={theme.textSecondary} />
+          <Text style={[styles.emptyTitle, { color: theme.textSecondary }]}>No habits yet</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>Add your first habit to get started!</Text>
         </View>
       ) : (
         habits.map((habit) => (
@@ -141,27 +146,21 @@ export const HabitList: React.FC<HabitListProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
   },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
     marginTop: 4,
   },
   habitItem: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
     margin: 16,
     marginVertical: 8,
     borderRadius: 12,
@@ -171,6 +170,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    borderWidth: 1,
   },
   habitInfo: {
     flex: 1,
@@ -194,13 +194,10 @@ const styles = StyleSheet.create({
   habitName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#333',
     flex: 1,
   },
   category: {
     fontSize: 12,
-    color: '#666',
-    backgroundColor: '#f0f0f0',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
@@ -212,8 +209,6 @@ const styles = StyleSheet.create({
   },
   tag: {
     fontSize: 11,
-    color: '#007AFF',
-    backgroundColor: '#007AFF20',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 3,
@@ -222,28 +217,34 @@ const styles = StyleSheet.create({
   },
   frequency: {
     fontSize: 12,
-    color: '#999',
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   editButton: {
-    padding: 8,
+    padding: Platform.select({ android: 12, default: 8 }),
     marginRight: 8,
+    minWidth: Platform.select({ android: 44, default: 32 }),
+    minHeight: Platform.select({ android: 44, default: 32 }),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   todayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: Platform.select({ android: 48, default: 40 }),
+    height: Platform.select({ android: 48, default: 40 }),
+    borderRadius: Platform.select({ android: 24, default: 20 }),
     borderWidth: 2,
-    borderColor: '#ddd',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
   deleteButton: {
-    padding: 8,
+    padding: Platform.select({ android: 12, default: 8 }),
+    minWidth: Platform.select({ android: 44, default: 32 }),
+    minHeight: Platform.select({ android: 44, default: 32 }),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyState: {
     flex: 1,
@@ -254,12 +255,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#999',
     marginTop: 16,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#ccc',
     marginTop: 8,
     textAlign: 'center',
   },

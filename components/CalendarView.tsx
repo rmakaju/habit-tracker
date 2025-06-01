@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
 import { useTheme } from './ThemeProvider';
+import { PlatformConstants, ScreenUtils, CalendarConfig } from '../utils/platformUtils';
 
 interface CalendarViewProps {
   habits: Habit[];
@@ -27,11 +29,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onToggleHabit,
 }) => {
   const { theme } = useTheme();
-  // Grid layout: 3 tiles per row (reduced size by ~1/3)
-  const tileMargin = 6; // reduced from 8
-  const tileWidth = (screenWidth - tileMargin * 4) / 3 * 0.75; // reduced by 25%
-  const cellPadding = 3; // reduced from 4
-  const cellSize = (tileWidth - cellPadding * 2) / 7; // 7 days
+  
+  // Responsive grid layout
+  const isAndroid = Platform.OS === 'android';
+  const isWeb = Platform.OS === 'web';
+  const isTablet = screenWidth > 768;
+  const isDesktop = screenWidth > 1024;
+  
+  // Calculate number of columns based on screen size
+  let columnsPerRow = 1; // Default for mobile
+  if (isDesktop) {
+    columnsPerRow = 3; // Keep 3 columns on large screens
+  } else if (isTablet || (isWeb && screenWidth > 600)) {
+    columnsPerRow = 2; // 2 columns on tablets
+  }
+  
+  const tileMargin = CalendarConfig.gridSpacing;
+  const totalMargin = tileMargin * (columnsPerRow + 1);
+  const baseTileWidth = (screenWidth - totalMargin) / columnsPerRow;
+  const tileWidth = baseTileWidth * (isAndroid ? 0.95 : 0.9);
+  const cellPadding = isAndroid ? 4 : 3;
+  const cellSize = Math.max((tileWidth - cellPadding * 2) / 7, CalendarConfig.minCellSize);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -172,14 +190,29 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         ))}
       </View>
 
-      {/* Habit grid: 3 columns */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: tileMargin / 2 }}>
+      {/* Habit grid: responsive columns */}
+      <View style={{ 
+        flexDirection: 'row', 
+        flexWrap: 'wrap', 
+        justifyContent: columnsPerRow === 1 ? 'center' : 'space-between', 
+        paddingHorizontal: tileMargin / 2 
+      }}>
         {habits.map(habit => {
           const entries = getHabitEntries(habit.id);
           return (
-            <View key={habit.id} style={{ width: tileWidth, margin: tileMargin / 2 }}>
+            <View key={habit.id} style={{ 
+              width: tileWidth, 
+              margin: tileMargin / 2,
+              marginBottom: tileMargin 
+            }}>
               <View style={[styles.habitTitleContainer, { backgroundColor: habit.color }]}>
-                <Text style={[styles.habitTitle, { color: 'white' }]} numberOfLines={1}>
+                <Text style={[
+                  styles.habitTitle, 
+                  { 
+                    color: 'white',
+                    fontSize: columnsPerRow === 1 ? 20 : (columnsPerRow === 2 ? 18 : 16)
+                  }
+                ]} numberOfLines={1}>
                   {habit.name}
                 </Text>
               </View>
@@ -192,14 +225,34 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <TouchableOpacity
                       key={index}
                       onPress={() => onToggleHabit?.(habit.id, dateString)}
-                      style={{ width: cellSize, height: cellSize, alignItems: 'center', justifyContent: 'center' }}
+                      style={{ 
+                        width: cellSize, 
+                        height: cellSize, 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        minWidth: CalendarConfig.minCellSize,
+                        minHeight: CalendarConfig.minCellSize,
+                      }}
                     >
                       {completed ? (
-                        <View style={{ width: cellSize * 0.55, height: cellSize * 0.55, borderRadius: (cellSize * 0.55) / 2, backgroundColor: habit.color, alignItems: 'center', justifyContent: 'center' }}>
-                          <Text style={[styles.dayNumber, { color: theme.background, fontSize: Math.max(8, cellSize * 0.3) }]}>{date.getDate()}</Text>
+                        <View style={{ 
+                          width: cellSize * (isAndroid ? 0.65 : 0.55), 
+                          height: cellSize * (isAndroid ? 0.65 : 0.55), 
+                          borderRadius: (cellSize * (isAndroid ? 0.65 : 0.55)) / 2, 
+                          backgroundColor: habit.color, 
+                          alignItems: 'center', 
+                          justifyContent: 'center' 
+                        }}>
+                          <Text style={[styles.dayNumber, { 
+                            color: theme.background, 
+                            fontSize: Math.max(isAndroid ? 10 : 8, cellSize * 0.3) 
+                          }]}>{date.getDate()}</Text>
                         </View>
                       ) : (
-                        <Text style={[styles.dayNumber, { color: isCurrentMonthDay ? theme.text : theme.textSecondary, fontSize: Math.max(8, cellSize * 0.3) }]}>{date.getDate()}</Text>
+                        <Text style={[styles.dayNumber, { 
+                          color: isCurrentMonthDay ? theme.text : theme.textSecondary, 
+                          fontSize: Math.max(isAndroid ? 10 : 8, cellSize * 0.3) 
+                        }]}>{date.getDate()}</Text>
                       )}
                     </TouchableOpacity>
                   );
@@ -219,58 +272,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16, // reduced from 20
-    paddingTop: 50, // reduced from 60
+    padding: Platform.select({ android: 20, default: 16 }),
+    paddingTop: Platform.select({ android: 60, default: 50 }),
   },
   title: {
-    fontSize: 26, // reduced from 32
+    fontSize: Platform.select({ android: 28, default: 26 }),
     fontWeight: 'bold',
   },
   subtitle: {
-    fontSize: 14, // reduced from 16
+    fontSize: Platform.select({ android: 16, default: 14 }),
     marginTop: 4,
   },
   monthNavigation: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16, // reduced from 20
-    paddingVertical: 12, // reduced from 16
-    marginHorizontal: 16, // reduced from 20
-    marginBottom: 12, // reduced from 16
-    borderRadius: 10, // reduced from 12
+    paddingHorizontal: Platform.select({ android: 20, default: 16 }),
+    paddingVertical: Platform.select({ android: 16, default: 12 }),
+    marginHorizontal: Platform.select({ android: 20, default: 16 }),
+    marginBottom: Platform.select({ android: 16, default: 12 }),
+    borderRadius: Platform.select({ android: 12, default: 10 }),
   },
   navButton: {
-    padding: 6, // reduced from 8
+    padding: Platform.select({ android: 12, default: 6 }),
+    minWidth: Platform.select({ android: 44, default: 32 }),
+    minHeight: Platform.select({ android: 44, default: 32 }),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   monthInfo: {
     alignItems: 'center',
   },
   monthText: {
-    fontSize: 18, // reduced from 20
+    fontSize: Platform.select({ android: 20, default: 18 }),
     fontWeight: '600',
   },
   todayButton: {
-    marginTop: 3, // reduced from 4
-    paddingHorizontal: 10, // reduced from 12
-    paddingVertical: 3, // reduced from 4
+    marginTop: Platform.select({ android: 4, default: 3 }),
+    paddingHorizontal: Platform.select({ android: 12, default: 10 }),
+    paddingVertical: Platform.select({ android: 6, default: 3 }),
+    minHeight: Platform.select({ android: 32, default: 24 }),
   },
   todayButtonText: {
-    fontSize: 12, // reduced from 14
+    fontSize: Platform.select({ android: 14, default: 12 }),
     fontWeight: '500',
   },
   dayHeaders: {
     flexDirection: 'row',
-    paddingHorizontal: 8, // reduced from 10
-    marginBottom: 6, // reduced from 8
+    paddingHorizontal: Platform.select({ android: 12, default: 8 }),
+    marginBottom: Platform.select({ android: 8, default: 6 }),
   },
   dayHeader: {
     // width via inline style
     alignItems: 'center',
-    paddingVertical: 1, // reduced from 2
+    paddingVertical: Platform.select({ android: 4, default: 1 }),
+    minHeight: Platform.select({ android: 24, default: 16 }),
   },
   dayHeaderText: {
-    fontSize: 10, // reduced from 12
+    fontSize: Platform.select({ android: 12, default: 10 }),
     fontWeight: '600',
   },
   calendar: {
@@ -286,20 +345,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayNumber: {
-    fontSize: 8, // reduced from 10
+    fontSize: Platform.select({ android: 10, default: 8 }),
     fontWeight: '500',
   },
   habitTitle: {
-    fontSize: 20, // increased back to original size for better readability
     fontWeight: '600',
-    marginBottom: 3, // reduced from 4
+    marginBottom: Platform.select({ android: 4, default: 3 }),
     textAlign: 'center',
+    // fontSize is set dynamically based on screen size
   },
   habitTitleContainer: {
-    paddingHorizontal: 6, // reduced from 8
-    paddingVertical: 3, // reduced from 4
-    borderRadius: 6, // reduced from 8
-    marginBottom: 3, // reduced from 4
+    paddingHorizontal: Platform.select({ android: 8, default: 6 }),
+    paddingVertical: Platform.select({ android: 4, default: 3 }),
+    borderRadius: Platform.select({ android: 8, default: 6 }),
+    marginBottom: Platform.select({ android: 4, default: 3 }),
   },
   legend: {
     margin: 20,
@@ -346,7 +405,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingTop: 60,
+    paddingTop: Platform.select({ android: 60, default: 60 }),
     borderBottomWidth: 1,
   },
   closeButton: {

@@ -256,7 +256,7 @@ const DailyCompletionChart: React.FC<DailyCompletionChartProps> = ({ data, maxCo
             const value = Math.ceil((maxCount * (3 - i)) / 3);
             return (
               <Text key={i} style={[styles.yAxisLabel, { color: theme.textSecondary }]}>
-                {value || 0}
+                {String(value || 0)}
               </Text>
             );
           })}
@@ -419,7 +419,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>
         <Ionicons name={icon as any} size={24} color={color} />
       </View>
-      <Text style={[styles.statValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[styles.statValue, { color: theme.text }]}>{String(value)}</Text>
       <Text style={[styles.statTitle, { color: theme.textSecondary }]}>{title}</Text>
       {subtitle && <Text style={[styles.statSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>}
     </View>
@@ -451,7 +451,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         <View style={styles.habitSummaryStats}>
           <View style={styles.habitSummaryStatItem}>
             <Text style={[styles.habitSummaryStatValue, { color: habit.color }]}>
-              {stats.currentStreak}
+              {String(stats.currentStreak)}
             </Text>
             <Text style={[styles.habitSummaryStatLabel, { color: theme.textSecondary }]}>
               streak
@@ -459,7 +459,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </View>
           <View style={styles.habitSummaryStatItem}>
             <Text style={[styles.habitSummaryStatValue, { color: theme.text }]}>
-              {stats.completionRate7Days}%
+              {String(stats.completionRate7Days)}%
             </Text>
             <Text style={[styles.habitSummaryStatLabel, { color: theme.textSecondary }]}>
               week
@@ -513,7 +513,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           />
           <StatCard
             title="Best Streak"
-            value={Math.max(...currentStreaks.map(s => s.streak), 0)}
+            value={currentStreaks.length > 0 ? Math.max(...currentStreaks.map(s => s.streak)) : 0}
             subtitle="days"
             icon="flame-outline"
             color="#ff6b6b"
@@ -542,18 +542,19 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>Current Streaks</Text>
           {currentStreaks.slice(0, 3).map(({ habit, streak }) => (
-            <View key={habit.id} style={[styles.streakItem, { backgroundColor: theme.card, borderColor: theme.border }]}>            <View style={[styles.streakIndicator, { backgroundColor: habit.color }]}>
-              {habit.icon && (
-                <Ionicons 
-                  name={habit.icon as any} 
-                  size={12} 
-                  color="white"
-                />
-              )}
-            </View>
-            <Text style={[styles.streakHabitName, { color: theme.text }]}>{habit.name}</Text>
+            <View key={habit.id} style={[styles.streakItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={[styles.streakIndicator, { backgroundColor: habit.color }]}>
+                {habit.icon && (
+                  <Ionicons 
+                    name={habit.icon as any} 
+                    size={12} 
+                    color="white"
+                  />
+                )}
+              </View>
+              <Text style={[styles.streakHabitName, { color: theme.text }]}>{habit.name}</Text>
               <View style={styles.streakValue}>
-                <Text style={[styles.streakNumber, { color: habit.color }]}>{streak}</Text>
+                <Text style={[styles.streakNumber, { color: habit.color }]}>{String(streak)}</Text>
                 <Text style={[styles.streakLabel, { color: theme.textSecondary }]}>days</Text>
               </View>
             </View>
