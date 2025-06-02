@@ -437,58 +437,73 @@ function MainApp() {
       </View>
 
       {/* Today's Progress */}
-      {habits.length > 0 && (
+      {habits.length > 0 && activeTab !== 'analytics' && (
         <View style={[styles.todaySection, { backgroundColor: theme.surface }]}>
           <Text style={[styles.todaySectionTitle, { color: theme.text }]}>Today's Progress</Text>
-          <View style={styles.todayGrid}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.todayHorizontalGrid}
+          >
             {habits.map((habit) => {
               const entries = habitStorage.getHabitEntries(habit.id);
               const todayCompleted = entries[getTodayString()] || false;
               
               return (
-            <Animated.View
-              key={habit.id}
-              style={{
-                transform: [{ 
-                  scale: animatedValues.get(habit.id) || new Animated.Value(1) 
-                }],
-              }}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.todayHabitCard,
-                  { borderColor: theme.border },
-                  todayCompleted && { backgroundColor: habit.color + '20' },
-                ]}
-                onPress={() => handleDatePress(habit.id, getTodayString())}
-              >
-                <View
-                  style={[
-                    styles.todayHabitDot,
-                    {
-                      backgroundColor: todayCompleted ? habit.color : theme.border,
-                    },
-                  ]}
+                <Animated.View
+                  key={habit.id}
+                  style={{
+                    transform: [{ 
+                      scale: animatedValues.get(habit.id) || new Animated.Value(1) 
+                    }],
+                  }}
                 >
-                  {habit.icon && (
-                    <Ionicons
-                      name={habit.icon as any}
-                      size={10}
-                      color={todayCompleted ? "white" : theme.textSecondary}
-                    />
-                  )}
-                </View>
-                <View style={styles.todayHabitInfo}>
-                  <Text style={[styles.todayHabitName, { color: theme.text }]}>{habit.name}</Text>
-                </View>
-                {todayCompleted && (
-                  <Ionicons name="checkmark" size={16} color={habit.color} />
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          );
+                  <TouchableOpacity
+                    style={[
+                      styles.todayHabitHorizontalCard,
+                      { 
+                        borderColor: theme.border,
+                        backgroundColor: todayCompleted ? habit.color + '20' : theme.surface,
+                      },
+                    ]}
+                    onPress={() => handleDatePress(habit.id, getTodayString())}
+                  >
+                    <View
+                      style={[
+                        styles.todayHabitDot,
+                        {
+                          backgroundColor: todayCompleted ? habit.color : theme.border,
+                        },
+                      ]}
+                    >
+                      {habit.icon && (
+                        <Ionicons
+                          name={habit.icon as any}
+                          size={12}
+                          color={todayCompleted ? "white" : theme.textSecondary}
+                        />
+                      )}
+                    </View>
+                    <Text 
+                      style={[
+                        styles.todayHabitName, 
+                        { 
+                          color: todayCompleted ? habit.color : theme.text,
+                          fontWeight: todayCompleted ? '600' : '500',
+                        }
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {habit.name}
+                    </Text>
+                    {todayCompleted && (
+                      <Ionicons name="checkmark" size={16} color={habit.color} />
+                    )}
+                  </TouchableOpacity>
+                </Animated.View>
+              );
             })}
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -697,6 +712,12 @@ const styles = StyleSheet.create({
   todayGrid: {
     gap: 8,
   },
+  todayHorizontalGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 4,
+  },
   todayHabitCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -705,24 +726,55 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e1e4e8',
   },
+  todayHabitHorizontalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    minWidth: 100,
+    maxWidth: 160,
+  },
   todayHabitDot: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    marginRight: 12,
+    marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  todayHabitIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  completedBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#22C55E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   todayHabitInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
-  todayHabitIcon: {
-    marginRight: 6,
-  },
   todayHabitName: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
+    flex: 1,
+    marginRight: 4,
   },
 });
