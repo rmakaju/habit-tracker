@@ -51,6 +51,38 @@ export const HabitList: React.FC<HabitListProps> = ({
     const entries = getHabitEntries(habit.id);
     const todayCompleted = entries[today] || false;
 
+    // Generate the current week starting from Sunday
+    const getWeekDays = () => {
+      const days = [];
+      const currentDate = new Date();
+      
+      // Find the start of the current week (Sunday)
+      const startOfWeek = new Date(currentDate);
+      const currentDay = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      startOfWeek.setDate(currentDate.getDate() - currentDay);
+      
+      // Generate 7 days starting from Sunday
+      const dayNames = ['S', 'M', 'T', 'W', 'Th', 'F', 'S'];
+      
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(startOfWeek);
+        date.setDate(startOfWeek.getDate() + i);
+        const dateString = date.toISOString().split('T')[0];
+        const dayName = dayNames[i];
+        
+        days.push({
+          date: dateString,
+          dayName,
+          completed: entries[dateString] || false,
+          isToday: dateString === today,
+        });
+      }
+      
+      return days;
+    };
+
+    const weekDays = getWeekDays();
+
     return (
       <View style={[styles.habitItem, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.habitInfo}>
@@ -85,6 +117,34 @@ export const HabitList: React.FC<HabitListProps> = ({
             {habit.frequency === 'weekly' && 'Weekly'}
             {habit.frequency === 'custom' && `${habit.customFrequency}x per week`}
           </Text>
+
+          {/* Weekly Grid */}
+          <View style={styles.weeklyGrid}>
+            {weekDays.map((day) => (
+              <TouchableOpacity
+                key={day.date}
+                style={[
+                  styles.dayCell,
+                  day.completed 
+                    ? { backgroundColor: habit.color }
+                    : styles.emptyDayCell,
+                  day.isToday && !day.completed && { 
+                    borderColor: habit.color, 
+                    borderWidth: 1.5 
+                  },
+                ]}
+                onPress={() => onToggleEntry(habit.id, day.date)}
+              >
+                <Text style={[
+                  styles.dayName,
+                  { color: day.completed ? 'white' : theme.textSecondary },
+                  day.isToday && !day.completed && { color: habit.color, fontWeight: '600' },
+                ]}>
+                  {day.dayName}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -125,7 +185,7 @@ export const HabitList: React.FC<HabitListProps> = ({
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <Text style={[styles.title, { color: theme.text }]}>All Habits</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap + to complete today, or view grid for history</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap + for today, or tap any day in the current week (Sun-Sat) to toggle completion</Text>
       </View>
 
       {habits.length === 0 ? (
@@ -217,6 +277,30 @@ const styles = StyleSheet.create({
   },
   frequency: {
     fontSize: 12,
+    marginBottom: 12,
+  },
+  weeklyGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    gap: Platform.select({ android: 3, default: 2 }),
+  },
+  dayCell: {
+    flex: 1,
+    height: Platform.select({ android: 28, default: 24 }),
+    borderRadius: Platform.select({ android: 3, default: 2 }),
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: Platform.select({ android: 28, default: 24 }),
+  },
+  emptyDayCell: {
+    backgroundColor: '#393A40',
+    borderWidth: 1,
+    borderColor: '#393A40',
+  },
+  dayName: {
+    fontSize: Platform.select({ android: 11, default: 10 }),
+    fontWeight: '500',
   },
   actions: {
     flexDirection: 'row',
