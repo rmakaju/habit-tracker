@@ -22,7 +22,7 @@ import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { habitStorage } from './utils/storage';
 import { NotificationService } from './utils/notifications';
 import { Habit, HabitCategory, AppSettings } from './types';
-import { PlatformConstants } from './utils/platformUtils';
+import { PlatformConstants, ScreenUtils } from './utils/platformUtils';
 
 // Main App Component with Enhanced Features
 function MainApp() {
@@ -172,121 +172,138 @@ function MainApp() {
                 </Text>
               </View>
             ) : (
-              habits.map((habit) => {
-                const entries = habitStorage.getHabitEntries(habit.id);
-                const todayCompleted = entries[getTodayString()] || false;
-
-                return (
-                  <View key={habit.id} style={[styles.habitContainer, { backgroundColor: theme.surface }]}>
-                    {/* Habit Header */}
-                    <View style={styles.habitHeader}>
-                      <View style={styles.habitInfo}>
-                        <View style={styles.habitTitleRow}>
-                          <View style={[styles.habitColorDot, { backgroundColor: habit.color }]}>
-                            {habit.icon && (
-                              <Ionicons
-                                name={habit.icon as any}
-                                size={10}
-                                color="white"
-                              />
-                            )}
-                          </View>
-                          <Text style={[styles.habitTitle, { color: theme.text }]}>{habit.name}</Text>
-                          {todayCompleted && (
-                            <Ionicons name="checkmark-circle" size={20} color={habit.color} />
-                          )}
-                        </View>
-                        <View style={styles.statsRow}>
-                          <Text style={[styles.statText, { color: theme.textSecondary }]}>
-                            🔥 {habitStorage.getHabitStreak(habit.id)} day streak
-                          </Text>
-                          <Text style={[styles.statText, { color: theme.textSecondary }]}>
-                            📊 {habitStorage.getCompletionRate(habit.id)}% this month
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.habitActions}>
-                        <TouchableOpacity
-                          onPress={() => handleEditHabit(habit)}
-                          style={styles.editButton}
-                        >
-                          <Ionicons name="pencil" size={16} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => handleDeleteHabit(habit.id, habit.name)}
-                          style={styles.deleteButton}
-                        >
-                          <Ionicons name="trash-outline" size={18} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* Habit Grid */}
-                    <HabitGrid
-                      habitName=""
-                      habitColor={habit.color}
-                      entries={entries}
-                      onDatePress={(date) => handleDatePress(habit.id, date)}
-                    />
-                  </View>
-                );
-              })
-            )}
-
-            {/* Today's Progress */}
-            {habits.length > 0 && (
-              <View style={[styles.todaySection, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.todaySectionTitle, { color: theme.text }]}>Today's Progress</Text>
-                <View style={styles.todayGrid}>
-                  {habits.map((habit) => {
+              ScreenUtils.isDesktop ? (
+                // Desktop: Two grids per row
+                <View style={styles.gridContainer}>
+                  {habits.map((habit, index) => {
                     const entries = habitStorage.getHabitEntries(habit.id);
                     const todayCompleted = entries[getTodayString()] || false;
-                    
+
                     return (
-                  <Animated.View
-                    key={habit.id}
-                    style={{
-                      transform: [{ 
-                        scale: animatedValues.get(habit.id) || new Animated.Value(1) 
-                      }],
-                    }}
-                  >
-                    <TouchableOpacity
-                      style={[
-                        styles.todayHabitCard,
-                        { borderColor: theme.border },
-                        todayCompleted && { backgroundColor: habit.color + '20' },
-                      ]}
-                      onPress={() => handleDatePress(habit.id, getTodayString())}
-                    >
-                      <View
+                      <View 
+                        key={habit.id} 
                         style={[
-                          styles.todayHabitDot,
-                          {
-                            backgroundColor: todayCompleted ? habit.color : theme.border,
-                          },
+                          styles.habitContainer, 
+                          { backgroundColor: theme.surface },
+                          { flex: 1, maxWidth: '48%', marginHorizontal: '1%' }
                         ]}
                       >
-                        {habit.icon && (
-                          <Ionicons
-                            name={habit.icon as any}
-                            size={10}
-                            color={todayCompleted ? "white" : theme.textSecondary}
-                          />
-                        )}
+                        {/* Habit Header */}
+                        <View style={styles.habitHeader}>
+                          <View style={styles.habitInfo}>
+                            <View style={styles.habitTitleRow}>
+                              <View style={[styles.habitColorDot, { backgroundColor: habit.color }]}>
+                                {habit.icon && (
+                                  <Ionicons
+                                    name={habit.icon as any}
+                                    size={10}
+                                    color="white"
+                                  />
+                                )}
+                              </View>
+                              <Text style={[styles.habitTitle, { color: theme.text }]}>{habit.name}</Text>
+                              {todayCompleted && (
+                                <Ionicons name="checkmark-circle" size={20} color={habit.color} />
+                              )}
+                            </View>
+                            <View style={styles.statsRow}>
+                              <Text style={[styles.statText, { color: theme.textSecondary }]}>
+                                🔥 {habitStorage.getHabitStreak(habit.id)} day streak
+                              </Text>
+                              <Text style={[styles.statText, { color: theme.textSecondary }]}>
+                                📊 {habitStorage.getCompletionRate(habit.id)}% this month
+                              </Text>
+                            </View>
+                          </View>
+                          <View style={styles.habitActions}>
+                            <TouchableOpacity
+                              onPress={() => handleEditHabit(habit)}
+                              style={styles.editButton}
+                            >
+                              <Ionicons name="pencil" size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              onPress={() => handleDeleteHabit(habit.id, habit.name)}
+                              style={styles.deleteButton}
+                            >
+                              <Ionicons name="trash-outline" size={18} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+
+                        {/* Habit Grid */}
+                        <HabitGrid
+                          habitName=""
+                          habitColor={habit.color}
+                          entries={entries}
+                          onDatePress={(date) => handleDatePress(habit.id, date)}
+                        />
                       </View>
-                      <View style={styles.todayHabitInfo}>
-                        <Text style={[styles.todayHabitName, { color: theme.text }]}>{habit.name}</Text>
-                      </View>
-                      {todayCompleted && (
-                        <Ionicons name="checkmark" size={16} color={habit.color} />
-                      )}
-                    </TouchableOpacity>
-                  </Animated.View>
-                );
+                    );
                   })}
                 </View>
-              </View>
+              ) : (
+                // Mobile: Single column
+                habits.map((habit) => {
+                  const entries = habitStorage.getHabitEntries(habit.id);
+                  const todayCompleted = entries[getTodayString()] || false;
+
+                  return (
+                    <View key={habit.id} style={[styles.habitContainer, { backgroundColor: theme.surface }]}>
+                      {/* Habit Header */}
+                      <View style={styles.habitHeader}>
+                        <View style={styles.habitInfo}>
+                          <View style={styles.habitTitleRow}>
+                            <View style={[styles.habitColorDot, { backgroundColor: habit.color }]}>
+                              {habit.icon && (
+                                <Ionicons
+                                  name={habit.icon as any}
+                                  size={10}
+                                  color="white"
+                                />
+                              )}
+                            </View>
+                            <Text style={[styles.habitTitle, { color: theme.text }]}>{habit.name}</Text>
+                            {todayCompleted && (
+                              <Ionicons name="checkmark-circle" size={20} color={habit.color} />
+                            )}
+                          </View>
+                          <View style={styles.statsRow}>
+                            <Text style={[styles.statText, { color: theme.textSecondary }]}>
+                              🔥 {habitStorage.getHabitStreak(habit.id)} day streak
+                            </Text>
+                            <Text style={[styles.statText, { color: theme.textSecondary }]}>
+                              📊 {habitStorage.getCompletionRate(habit.id)}% this month
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.habitActions}>
+                          <TouchableOpacity
+                            onPress={() => handleEditHabit(habit)}
+                            style={styles.editButton}
+                          >
+                            <Ionicons name="pencil" size={16} color={theme.textSecondary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleDeleteHabit(habit.id, habit.name)}
+                            style={styles.deleteButton}
+                          >
+                            <Ionicons name="trash-outline" size={18} color={theme.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      {/* Habit Grid */}
+                      <HabitGrid
+                        habitName=""
+                        habitColor={habit.color}
+                        entries={entries}
+                        onDatePress={(date) => handleDatePress(habit.id, date)}
+                      />
+                    </View>
+                  );
+                })
+              )
             )}
           </ScrollView>
         );
@@ -419,6 +436,62 @@ function MainApp() {
         </TouchableOpacity>
       </View>
 
+      {/* Today's Progress */}
+      {habits.length > 0 && (
+        <View style={[styles.todaySection, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.todaySectionTitle, { color: theme.text }]}>Today's Progress</Text>
+          <View style={styles.todayGrid}>
+            {habits.map((habit) => {
+              const entries = habitStorage.getHabitEntries(habit.id);
+              const todayCompleted = entries[getTodayString()] || false;
+              
+              return (
+            <Animated.View
+              key={habit.id}
+              style={{
+                transform: [{ 
+                  scale: animatedValues.get(habit.id) || new Animated.Value(1) 
+                }],
+              }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.todayHabitCard,
+                  { borderColor: theme.border },
+                  todayCompleted && { backgroundColor: habit.color + '20' },
+                ]}
+                onPress={() => handleDatePress(habit.id, getTodayString())}
+              >
+                <View
+                  style={[
+                    styles.todayHabitDot,
+                    {
+                      backgroundColor: todayCompleted ? habit.color : theme.border,
+                    },
+                  ]}
+                >
+                  {habit.icon && (
+                    <Ionicons
+                      name={habit.icon as any}
+                      size={10}
+                      color={todayCompleted ? "white" : theme.textSecondary}
+                    />
+                  )}
+                </View>
+                <View style={styles.todayHabitInfo}>
+                  <Text style={[styles.todayHabitName, { color: theme.text }]}>{habit.name}</Text>
+                </View>
+                {todayCompleted && (
+                  <Ionicons name="checkmark" size={16} color={habit.color} />
+                )}
+              </TouchableOpacity>
+            </Animated.View>
+          );
+            })}
+          </View>
+        </View>
+      )}
+
       {/* Content */}
       {renderContent()}
 
@@ -462,6 +535,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fafbfc',
+  },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   header: {
     flexDirection: 'row',
