@@ -160,9 +160,9 @@ const styles = StyleSheet.create({
     borderRadius: Platform.select({ android: 3, default: 2 }),
   },
   emptySquare: {
-    backgroundColor: '#ebedf0',
+    backgroundColor: '#393A40',
     borderWidth: 1,
-    borderColor: '#e1e4e8',
+    borderColor: '#393A40',
   },
   legend: {
     flexDirection: 'row',
