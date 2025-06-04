@@ -156,21 +156,6 @@ export const HabitList: React.FC<HabitListProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.todayButton,
-              { borderColor: theme.border },
-              todayCompleted && { backgroundColor: habit.color },
-            ]}
-            onPress={() => onToggleEntry(habit.id, today)}
-          >
-            <Ionicons
-              name={todayCompleted ? 'checkmark' : 'add'}
-              size={20}
-              color={todayCompleted ? '#fff' : habit.color}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => handleDeleteHabit(habit)}
           >
@@ -185,7 +170,7 @@ export const HabitList: React.FC<HabitListProps> = ({
     <ScrollView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <Text style={[styles.title, { color: theme.text }]}>All Habits</Text>
-        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap + for today, or tap any day in the current week (Sun-Sat) to toggle completion</Text>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap any day in the current week (Sun-Sat) to toggle completion</Text>
       </View>
 
       {habits.length === 0 ? (
@@ -326,15 +311,6 @@ const styles = StyleSheet.create({
     minHeight: Platform.select({ android: 44, default: 32 }),
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  todayButton: {
-    width: Platform.select({ android: 48, default: 40 }),
-    height: Platform.select({ android: 48, default: 40 }),
-    borderRadius: Platform.select({ android: 24, default: 20 }),
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
   },
   deleteButton: {
     padding: Platform.select({ android: 12, default: 8 }),
