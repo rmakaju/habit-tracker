@@ -117,34 +117,34 @@ export const HabitList: React.FC<HabitListProps> = ({
             {habit.frequency === 'weekly' && 'Weekly'}
             {habit.frequency === 'custom' && `${habit.customFrequency}x per week`}
           </Text>
+        </View>
 
-          {/* Weekly Grid */}
-          <View style={styles.weeklyGrid}>
-            {weekDays.map((day) => (
-              <TouchableOpacity
-                key={day.date}
-                style={[
-                  styles.dayCell,
-                  day.completed 
-                    ? { backgroundColor: habit.color }
-                    : styles.emptyDayCell,
-                  day.isToday && !day.completed && { 
-                    borderColor: habit.color, 
-                    borderWidth: 1.5 
-                  },
-                ]}
-                onPress={() => onToggleEntry(habit.id, day.date)}
-              >
-                <Text style={[
-                  styles.dayName,
-                  { color: day.completed ? 'white' : theme.textSecondary },
-                  day.isToday && !day.completed && { color: habit.color, fontWeight: '600' },
-                ]}>
-                  {day.dayName}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Weekly Grid - inline for web */}
+        <View style={styles.weeklyGridInline}>
+          {weekDays.map((day) => (
+            <TouchableOpacity
+              key={day.date}
+              style={[
+                styles.dayCell,
+                day.completed 
+                  ? { backgroundColor: habit.color }
+                  : styles.emptyDayCell,
+                day.isToday && !day.completed && { 
+                  borderColor: habit.color, 
+                  borderWidth: 1.5 
+                },
+              ]}
+              onPress={() => onToggleEntry(habit.id, day.date)}
+            >
+              <Text style={[
+                styles.dayName,
+                { color: day.completed ? 'white' : theme.textSecondary },
+                day.isToday && !day.completed && { color: habit.color, fontWeight: '600' },
+              ]}>
+                {day.dayName}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.actions}>
@@ -220,7 +220,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   habitItem: {
-    flexDirection: 'row',
+    flexDirection: Platform.select({ android: 'column', default: 'row' }),
+    alignItems: 'center',
     margin: 16,
     marginVertical: 8,
     borderRadius: 12,
@@ -231,14 +232,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     borderWidth: 1,
+    gap: 8,
   },
   habitInfo: {
     flex: 1,
+    minWidth: 0, // Prevents overflow
   },
   habitHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    flexWrap: 'wrap',
   },
   colorIndicator: {
     width: 24,
@@ -254,7 +258,7 @@ const styles = StyleSheet.create({
   habitName: {
     fontSize: 16,
     fontWeight: '600',
-    flex: 1,
+    marginEnd: 8,
   },
   category: {
     fontSize: 12,
@@ -279,6 +283,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginBottom: 12,
   },
+  weeklyGridInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: Platform.select({ android: 220, default: 300 }), // Fixed width for consistent alignment
+    gap: Platform.select({ android: 4, default: 3 }),
+    paddingHorizontal: 8,
+    marginEnd: Platform.select({ android: 0, default: 400 }), // Add margin for web
+  },
   weeklyGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -286,12 +299,11 @@ const styles = StyleSheet.create({
     gap: Platform.select({ android: 3, default: 2 }),
   },
   dayCell: {
-    flex: 1,
-    height: Platform.select({ android: 28, default: 24 }),
-    borderRadius: Platform.select({ android: 3, default: 2 }),
+    width: Platform.select({ android: 24, default: 40 }),
+    height: Platform.select({ android: 24, default: 40 }),
+    borderRadius: Platform.select({ android: 12, default: 20 }), // Make circular
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: Platform.select({ android: 28, default: 24 }),
   },
   emptyDayCell: {
     backgroundColor: '#393A40',
@@ -305,6 +317,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: 8, // Add consistent spacing from weekly grid
   },
   editButton: {
     padding: Platform.select({ android: 12, default: 8 }),
