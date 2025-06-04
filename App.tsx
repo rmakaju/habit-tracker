@@ -172,9 +172,12 @@ function MainApp() {
                 </Text>
               </View>
             ) : (
-              ScreenUtils.isDesktop ? (
-                // Desktop: Two grids per row
-                <View style={styles.gridContainer}>
+              ScreenUtils.width > 1024 ? (
+                // Desktop: Two columns responsive layout  
+                <View style={[
+                  styles.gridContainer,
+                  { justifyContent: 'space-evenly' }
+                ]}>
                   {habits.map((habit, index) => {
                     const entries = habitStorage.getHabitEntries(habit.id);
                     const todayCompleted = entries[getTodayString()] || false;
@@ -185,7 +188,12 @@ function MainApp() {
                         style={[
                           styles.habitContainer, 
                           { backgroundColor: theme.surface },
-                          { flex: 1, maxWidth: '48%', marginHorizontal: '1%' }
+                          { 
+                            flexBasis: '48%',
+                            maxWidth: '48%',
+                            marginBottom: 16,
+                            marginHorizontal: 0,
+                          }
                         ]}
                       >
                         {/* Habit Header */}
@@ -554,8 +562,9 @@ const styles = StyleSheet.create({
   gridContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
     paddingHorizontal: 8,
+    alignItems: 'flex-start',
+    gap: 8, // Add gap between items
   },
   header: {
     flexDirection: 'row',
@@ -635,8 +644,8 @@ const styles = StyleSheet.create({
   },
   habitContainer: {
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 8,
+    marginHorizontal: 16, // Default for mobile, overridden inline for responsive
+    marginVertical: 8, // Default for mobile, overridden inline for responsive
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',

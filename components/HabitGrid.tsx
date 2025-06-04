@@ -139,6 +139,7 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 20,
     paddingHorizontal: 16,
+    marginInline: 'auto'
   },
   habitName: {
     fontSize: 18,
