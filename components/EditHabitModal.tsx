@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   View,
@@ -130,6 +130,32 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [webTimeInput, setWebTimeInput] = useState('');
+
+
+  const formatTimeInput = (date: Date) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const parseTimeInput = (text: string) => {
+    const match = text.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (!match) return null;
+    const hours24 = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const next = new Date(reminderTime);
+    next.setHours(hours24, minutes, 0, 0);
+    return next;
+  };
+
+  const handleWebTimeChange = (text: string) => {
+    setWebTimeInput(text);
+    const next = parseTimeInput(text);
+    if (next) {
+      setReminderTime(next);
+    }
+  };
 
   useEffect(() => {
     if (habit) {
@@ -156,6 +182,10 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
       }
     }
   }, [habit]);
+
+  useEffect(() => {
+    setWebTimeInput(formatTimeInput(reminderTime));
+  }, [reminderTime]);
 
   const isValidHexColor = (hex: string): boolean => {
     const hexRegex = /^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
@@ -301,18 +331,23 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
               <View style={styles.reminderContainer}>
                 {Platform.OS === 'web' ? (
                   <View style={{ marginBottom: 10 }}>
-                    <DateTimePicker
-                      value={reminderTime}
-                      mode="time"
-                      display="default"
-                      onChange={(event, selectedTime) => {
-                        if (selectedTime) {
-                          setReminderTime(selectedTime);
-                        }
-                      }}
-                    />
+                    {React.createElement('input', {
+                      type: 'time',
+                      value: webTimeInput,
+                      onChange: (event: any) => handleWebTimeChange(event.target.value),
+                      style: {
+                        width: 140,
+                        border: `1px solid ${theme.border}`,
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        fontSize: 16,
+                        color: theme.text,
+                        backgroundColor: 'transparent',
+                        boxSizing: 'border-box',
+                      },
+                    })}
                     <Text style={[styles.webNote, { color: theme.textSecondary, marginTop: 10 }]}>
-                      Note: Push notifications are not supported on web.
+                      Note: Browser notifications work on web, but only while this tab is open.
                     </Text>
                   </View>
                 ) : (

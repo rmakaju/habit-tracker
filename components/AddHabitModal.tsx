@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -159,6 +159,35 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderTime, setReminderTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [webTimeInput, setWebTimeInput] = useState('');
+
+  const formatTimeInput = (date: Date) => {
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  };
+
+  const parseTimeInput = (text: string) => {
+    const match = text.trim().match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (!match) return null;
+    const hours24 = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const next = new Date(reminderTime);
+    next.setHours(hours24, minutes, 0, 0);
+    return next;
+  };
+
+  const handleWebTimeChange = (text: string) => {
+    setWebTimeInput(text);
+    const next = parseTimeInput(text);
+    if (next) {
+      setReminderTime(next);
+    }
+  };
+
+  useEffect(() => {
+    setWebTimeInput(formatTimeInput(reminderTime));
+  }, [reminderTime]);
 
   const handleSubmit = () => {
     if (habitName.trim()) {
@@ -446,30 +475,55 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
             </View>
             {reminderEnabled && (
               <View>
-                <TouchableOpacity
-                  style={styles.timeButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
-                  <Ionicons name="time-outline" size={20} color="#666" />
-                  <Text style={styles.timeButtonText}>
-                    {reminderTime.toLocaleTimeString([], { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                {Platform.OS === 'web' ? (
+                  <View>
+                    {React.createElement('input', {
+                      type: 'time',
+                      value: webTimeInput,
+                      onChange: (event: any) => handleWebTimeChange(event.target.value),
+                      style: {
+                        width: 140,
+                        border: '1px solid #e1e4e8',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        fontSize: 16,
+                        color: '#333',
+                        backgroundColor: '#fff',
+                        boxSizing: 'border-box',
+                      },
                     })}
-                  </Text>
-                </TouchableOpacity>
-                {showTimePicker && (
-                  <DateTimePicker
-                    value={reminderTime}
-                    mode="time"
-                    display="default"
-                    onChange={(event, selectedTime) => {
-                      setShowTimePicker(false);
-                      if (selectedTime) {
-                        setReminderTime(selectedTime);
-                      }
-                    }}
-                  />
+                    <Text style={styles.webNote}>
+                      Note: Browser notifications work on web, but only while this tab is open.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={styles.timeButton}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Ionicons name="time-outline" size={20} color="#666" />
+                      <Text style={styles.timeButtonText}>
+                        {reminderTime.toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={reminderTime}
+                        mode="time"
+                        display="default"
+                        onChange={(event, selectedTime) => {
+                          setShowTimePicker(false);
+                          if (selectedTime) {
+                            setReminderTime(selectedTime);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
                 )}
               </View>
             )}
@@ -698,6 +752,12 @@ const styles = StyleSheet.create({
   timeButtonText: {
     fontSize: 16,
     color: '#333',
+  },
+  webNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#666',
+    marginTop: 8,
   },
   previewLabel: {
     fontSize: 16,

@@ -19,8 +19,93 @@ try {
   console.warn('Notification handler setup failed (this is normal in Expo Go):', error);
 }
 
+const webNotificationTimers = new Map<string, number>();
+
+const getWebNotification = () => (globalThis as any).Notification as any;
+
+const clearWebNotificationTimer = (id: string) => {
+  const timerId = webNotificationTimers.get(id);
+  if (timerId !== undefined) {
+    (globalThis as any).clearTimeout(timerId);
+    webNotificationTimers.delete(id);
+  }
+};
+
+const scheduleWebNotification = (
+  id: string,
+  title: string,
+  body: string,
+  getNextTrigger: () => Date,
+  data?: Record<string, string>
+) => {
+  const WebNotification = getWebNotification();
+  if (!WebNotification) {
+    return null;
+  }
+
+  const scheduleNext = () => {
+    const nextTrigger = getNextTrigger();
+    const delay = Math.max(0, nextTrigger.getTime() - Date.now());
+
+    const timeoutId = (globalThis as any).setTimeout(() => {
+      try {
+        new WebNotification(title, { body, data });
+      } catch (error) {
+        console.warn('Error showing web notification:', error);
+      }
+      scheduleNext();
+    }, delay);
+
+    webNotificationTimers.set(id, timeoutId);
+  };
+
+  scheduleNext();
+  return id;
+};
+
+const getNextDailyTrigger = (reminderTime: Date) => {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(reminderTime.getHours(), reminderTime.getMinutes(), 0, 0);
+  if (next <= now) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+};
+
+const getNextWeeklyTrigger = (reminderTime: Date, weekday: number) => {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(reminderTime.getHours(), reminderTime.getMinutes(), 0, 0);
+
+  const normalizedWeekday = weekday % 7; // 7 -> 0 (Sunday)
+  const currentDay = next.getDay();
+  let daysAhead = (normalizedWeekday - currentDay + 7) % 7;
+  if (daysAhead === 0 && next <= now) {
+    daysAhead = 7;
+  }
+  next.setDate(next.getDate() + daysAhead);
+  return next;
+};
+
 export class NotificationService {
   static async requestPermissions(): Promise<boolean> {
+    if (Platform.OS === 'web') {
+      const WebNotification = getWebNotification();
+      if (!WebNotification) {
+        console.warn('Web Notifications API is not available in this browser.');
+        return false;
+      }
+
+      const permission = await WebNotification.requestPermission();
+      if (permission !== 'granted') {
+        console.warn('Web notification permission not granted.');
+        return false;
+      }
+
+      return true;
+    }
+
     if (!Device.isDevice) {
       console.log('Must use physical device for Push Notifications');
       return false;
@@ -58,6 +143,18 @@ export class NotificationService {
         return null;
       }
 
+      if (Platform.OS === 'web') {
+        const id = `web-daily-${habit.id}`;
+        clearWebNotificationTimer(id);
+        return scheduleWebNotification(
+          id,
+          'Habit Reminder',
+          `Time to work on: ${habit.name}`,
+          () => getNextDailyTrigger(reminderTime),
+          { habitId: habit.id }
+        );
+      }
+
       const identifier = await Notifications.scheduleNotificationAsync({
         content: {
           title: 'Habit Reminder',
@@ -81,6 +178,10 @@ export class NotificationService {
 
   static async cancelHabitReminder(notificationId: string): Promise<void> {
     try {
+      if (Platform.OS === 'web') {
+        clearWebNotificationTimer(notificationId);
+        return;
+      }
       await Notifications.cancelScheduledNotificationAsync(notificationId);
     } catch (error) {
       console.error('Error canceling notification:', error);
@@ -89,6 +190,10 @@ export class NotificationService {
 
   static async cancelAllHabitReminders(): Promise<void> {
     try {
+      if (Platform.OS === 'web') {
+        webNotificationTimers.forEach((_, id) => clearWebNotificationTimer(id));
+        return;
+      }
       await Notifications.cancelAllScheduledNotificationsAsync();
     } catch (error) {
       console.error('Error canceling all notifications:', error);
@@ -97,6 +202,9 @@ export class NotificationService {
 
   static async getScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
     try {
+      if (Platform.OS === 'web') {
+        return [];
+      }
       return await Notifications.getAllScheduledNotificationsAsync();
     } catch (error) {
       console.error('Error getting scheduled notifications:', error);
@@ -109,6 +217,18 @@ export class NotificationService {
       const hasPermission = await this.requestPermissions();
       if (!hasPermission) {
         return null;
+      }
+
+      if (Platform.OS === 'web') {
+        const id = `web-weekly-${habit.id}-${weekday}`;
+        clearWebNotificationTimer(id);
+        return scheduleWebNotification(
+          id,
+          'Weekly Habit Reminder',
+          `Don't forget: ${habit.name}`,
+          () => getNextWeeklyTrigger(reminderTime, weekday),
+          { habitId: habit.id }
+        );
       }
 
       const identifier = await Notifications.scheduleNotificationAsync({
