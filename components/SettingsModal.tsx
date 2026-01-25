@@ -9,9 +9,11 @@ import {
   Share,
   Modal,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AppSettings } from '../types';
+import { NotificationService } from '../utils/notifications';
 import { useTheme } from './ThemeProvider';
 
 interface SettingsModalProps {
@@ -32,11 +34,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { theme } = useTheme();
   const [localSettings, setLocalSettings] = useState(settings);
+  const [permissionStatus, setPermissionStatus] = useState('Checking...');
+  const [webDiagnostics, setWebDiagnostics] = useState<
+    {
+      hasNotificationApi: boolean;
+      permission: string;
+      isSecureContext: boolean;
+      hasServiceWorker: boolean;
+      visibilityState: string;
+    } | null
+  >(null);
 
   // Update local settings when props change
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
+
+  useEffect(() => {
+    const loadPermissionStatus = async () => {
+      const status = await NotificationService.getPermissionStatus();
+      const label =
+        status === 'granted'
+          ? 'Granted'
+          : status === 'denied'
+            ? 'Denied'
+            : status === 'unavailable'
+              ? 'Not supported'
+              : 'Not requested';
+      setPermissionStatus(label);
+    };
+
+    if (visible) {
+      loadPermissionStatus();
+      if (Platform.OS === 'web') {
+        setWebDiagnostics(NotificationService.getWebDiagnostics());
+      }
+    }
+  }, [visible]);
 
   const handleToggle = (key: keyof AppSettings) => {
     const newValue = !localSettings[key];
@@ -119,6 +153,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             value={localSettings.notifications}
             onToggle={() => handleToggle('notifications')}
           />
+          <View style={[styles.permissionRow, { borderBottomColor: theme.border }]}> 
+            <Text style={[styles.permissionLabel, { color: theme.text }]}>Permission</Text>
+            <Text style={[styles.permissionValue, { color: theme.textSecondary }]}>{permissionStatus}</Text>
+          </View>
+          <SettingRow
+            title="Send test notification"
+            subtitle="Verify notifications are working"
+            type="button"
+            onToggle={async () => {
+              const success = await NotificationService.sendTestNotification();
+              const status = await NotificationService.getPermissionStatus();
+              const label =
+                status === 'granted'
+                  ? 'Granted'
+                  : status === 'denied'
+                    ? 'Denied'
+                    : status === 'unavailable'
+                      ? 'Not supported'
+                      : 'Not requested';
+              setPermissionStatus(label);
+
+              if (!success) {
+                Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+              } else {
+                Alert.alert('Test Sent', 'A test notification was sent.');
+              }
+            }}
+          />
+          <SettingRow
+            title="Send test in 10 seconds"
+            subtitle="Schedules a short-delay test"
+            type="button"
+            onToggle={async () => {
+              const success = await NotificationService.sendTestNotificationAfterDelay(10);
+              const status = await NotificationService.getPermissionStatus();
+              const label =
+                status === 'granted'
+                  ? 'Granted'
+                  : status === 'denied'
+                    ? 'Denied'
+                    : status === 'unavailable'
+                      ? 'Not supported'
+                      : 'Not requested';
+              setPermissionStatus(label);
+
+              if (!success) {
+                Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+              } else {
+                Alert.alert('Scheduled', 'A test notification will fire in about 10 seconds.');
+              }
+            }}
+          />
+          {Platform.OS === 'web' && webDiagnostics && (
+            <View style={[styles.permissionRow, { borderBottomColor: theme.border }]}> 
+              <Text style={[styles.permissionLabel, { color: theme.text }]}>Web Support</Text>
+              <Text style={[styles.permissionValue, { color: theme.textSecondary }]}> 
+                {webDiagnostics.hasNotificationApi ? 'API ✔︎' : 'API ✖︎'} · {webDiagnostics.isSecureContext ? 'Secure ✔︎' : 'Secure ✖︎'} · {webDiagnostics.hasServiceWorker ? 'SW ✔︎' : 'SW ✖︎'} · {webDiagnostics.visibilityState}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={[styles.section, { backgroundColor: theme.surface }]}>
@@ -200,6 +294,21 @@ const styles = StyleSheet.create({
   settingSubtitle: {
     fontSize: 14,
     marginTop: 2,
+  },
+  permissionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  permissionLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  permissionValue: {
+    fontSize: 14,
   },
   button: {
     padding: 5,

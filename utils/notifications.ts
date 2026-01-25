@@ -31,6 +31,34 @@ const clearWebNotificationTimer = (id: string) => {
   }
 };
 
+const showWebNotification = async (title: string, body: string, data?: Record<string, string>) => {
+  const WebNotification = getWebNotification();
+  if (!WebNotification) {
+    return false;
+  }
+
+  try {
+    new WebNotification(title, { body, data });
+    return true;
+  } catch (error) {
+    console.warn('Error showing web notification:', error);
+  }
+
+  try {
+    const navigatorRef = (globalThis as any).navigator;
+    if (navigatorRef?.serviceWorker?.getRegistration) {
+      const registration = await navigatorRef.serviceWorker.getRegistration();
+      if (registration?.showNotification) {
+        await registration.showNotification(title, { body, data });
+        return true;
+      }
+    }
+  } catch (error) {
+    console.warn('Error showing web notification via service worker:', error);
+  }
+  return false;
+};
+
 const scheduleWebNotification = (
   id: string,
   title: string,
@@ -47,12 +75,8 @@ const scheduleWebNotification = (
     const nextTrigger = getNextTrigger();
     const delay = Math.max(0, nextTrigger.getTime() - Date.now());
 
-    const timeoutId = (globalThis as any).setTimeout(() => {
-      try {
-        new WebNotification(title, { body, data });
-      } catch (error) {
-        console.warn('Error showing web notification:', error);
-      }
+    const timeoutId = (globalThis as any).setTimeout(async () => {
+      await showWebNotification(title, body, data);
       scheduleNext();
     }, delay);
 
@@ -89,6 +113,52 @@ const getNextWeeklyTrigger = (reminderTime: Date, weekday: number) => {
 };
 
 export class NotificationService {
+  static getWebDiagnostics(): {
+    hasNotificationApi: boolean;
+    permission: string;
+    isSecureContext: boolean;
+    hasServiceWorker: boolean;
+    visibilityState: string;
+  } | null {
+    if (Platform.OS !== 'web') {
+      return null;
+    }
+
+    const WebNotification = (globalThis as any).Notification;
+    const permission = WebNotification?.permission ?? 'unknown';
+    const navigatorRef = (globalThis as any).navigator;
+    const hasServiceWorker = Boolean(navigatorRef?.serviceWorker);
+    const visibilityState = (globalThis as any).document?.visibilityState ?? 'unknown';
+    return {
+      hasNotificationApi: Boolean(WebNotification),
+      permission,
+      isSecureContext: Boolean((globalThis as any).isSecureContext),
+      hasServiceWorker,
+      visibilityState,
+    };
+  }
+
+  static async getPermissionStatus(): Promise<'granted' | 'denied' | 'undetermined' | 'unavailable'> {
+    try {
+      if (Platform.OS === 'web') {
+        const WebNotification = (globalThis as any).Notification;
+        if (!WebNotification) {
+          return 'unavailable';
+        }
+        const permission = WebNotification.permission as NotificationPermission | undefined;
+        if (permission === 'granted') return 'granted';
+        if (permission === 'denied') return 'denied';
+        return 'undetermined';
+      }
+
+      const { status } = await Notifications.getPermissionsAsync();
+      return status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined';
+    } catch (error) {
+      console.warn('Error getting notification permission status:', error);
+      return 'unavailable';
+    }
+  }
+
   static async requestPermissions(): Promise<boolean> {
     if (Platform.OS === 'web') {
       const WebNotification = getWebNotification();
@@ -173,6 +243,68 @@ export class NotificationService {
     } catch (error) {
       console.error('Error scheduling notification:', error);
       return null;
+    }
+  }
+
+  static async sendTestNotification(): Promise<boolean> {
+    try {
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) {
+        return false;
+      }
+
+      if (Platform.OS === 'web') {
+        const WebNotification = getWebNotification();
+        if (!WebNotification) {
+          return false;
+        }
+        return await showWebNotification('Test Notification', 'Notifications are working correctly.');
+      }
+
+      await Notifications.presentNotificationAsync({
+        title: 'Test Notification',
+        body: 'Notifications are working correctly.',
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      return false;
+    }
+  }
+
+  static async sendTestNotificationAfterDelay(seconds: number = 10): Promise<boolean> {
+    try {
+      const hasPermission = await this.requestPermissions();
+      if (!hasPermission) {
+        return false;
+      }
+
+      if (Platform.OS === 'web') {
+        const WebNotification = getWebNotification();
+        if (!WebNotification) {
+          return false;
+        }
+        (globalThis as any).setTimeout(async () => {
+          await showWebNotification('Test Notification', 'This was scheduled a few seconds ago.');
+        }, Math.max(0, seconds) * 1000);
+        return true;
+      }
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Test Notification',
+          body: 'This was scheduled a few seconds ago.',
+        },
+        trigger: {
+          seconds: Math.max(1, Math.floor(seconds)),
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error scheduling test notification:', error);
+      return false;
     }
   }
 
