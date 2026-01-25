@@ -99,7 +99,27 @@ function MainApp() {
     setRefreshKey(prev => prev + 1);
   };
 
-  const handleUpdateHabit = (habitId: string, updates: Partial<Habit>) => {
+  const handleUpdateHabit = async (habitId: string, updates: Partial<Habit>) => {
+    const habit = habits.find(h => h.id === habitId);
+    if (!habit) return;
+
+    // Check if reminders changed
+    if ('reminderTime' in updates) {
+      if (updates.reminderTime) {
+        // Schedule notification
+        const reminderDate = new Date(updates.reminderTime);
+        const notificationId = await NotificationService.scheduleHabitReminder(
+          { ...habit, ...updates, id: habitId } as Habit, // Merge updates for notification creation
+          reminderDate
+        );
+        updates.notificationId = notificationId || undefined;
+      } else if (habit.notificationId) {
+        // Cancel notification if disabled
+        await NotificationService.cancelHabitReminder(habit.notificationId);
+        updates.notificationId = undefined;
+      }
+    }
+    
     habitStorage.updateHabit(habitId, updates);
     setRefreshKey(prev => prev + 1);
   };

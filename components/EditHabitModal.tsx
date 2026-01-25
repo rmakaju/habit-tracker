@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   View,
   Text,
@@ -9,6 +10,7 @@ import {
   ScrollView,
   Alert,
   Platform,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
@@ -125,6 +127,9 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
   const [selectedIcon, setSelectedIcon] = useState<string>(PREDEFINED_ICONS[0]);
   const [customHexColor, setCustomHexColor] = useState('');
   const [isUsingCustomColor, setIsUsingCustomColor] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderTime, setReminderTime] = useState(new Date());
+  const [showTimePicker, setShowTimePicker] = useState(false);
 
   useEffect(() => {
     if (habit) {
@@ -139,6 +144,15 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
         setCustomHexColor(habit.color);
       } else {
         setCustomHexColor('');
+      }
+
+      // Initialize reminder state
+      if (habit.reminderTime) {
+        setReminderEnabled(true);
+        setReminderTime(new Date(habit.reminderTime));
+      } else {
+        setReminderEnabled(false);
+        setReminderTime(new Date());
       }
     }
   }, [habit]);
@@ -184,6 +198,7 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
       name: habitName.trim(),
       color: selectedColor,
       icon: selectedIcon,
+      reminderTime: reminderEnabled ? reminderTime.toISOString() : undefined,
     });
 
     onClose();
@@ -191,6 +206,24 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
 
   const handleClose = () => {
     onClose();
+  };
+
+  const handleToggleReminder = (value: boolean) => {
+    setReminderEnabled(value);
+    if (value) {
+      setShowTimePicker(true);
+    }
+  };
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    const currentDate = selectedDate || reminderTime;
+    setShowTimePicker(Platform.OS === 'ios');
+    setReminderTime(currentDate);
+  };
+
+  const handleConfirmTime = () => {
+    setShowTimePicker(false);
+    // Optionally, you can add logic to save the reminder time immediately
   };
 
   if (!habit) return null;
@@ -250,6 +283,69 @@ export const EditHabitModal: React.FC<EditHabitModalProps> = ({
                 {habitName || 'Habit Name'}
               </Text>
             </View>
+          </View>
+
+          {/* Reminder Selection */}
+          <View style={styles.section}>
+            <View style={styles.reminderHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>Reminder</Text>
+              <Switch
+                value={reminderEnabled}
+                onValueChange={handleToggleReminder}
+                trackColor={{ false: '#767577', true: theme.primary }}
+                thumbColor={Platform.OS === 'ios' ? '#fff' : (reminderEnabled ? '#fff' : '#f4f3f4')}
+              />
+            </View>
+            
+            {reminderEnabled && (
+              <View style={styles.reminderContainer}>
+                {Platform.OS === 'web' ? (
+                  <View style={{ marginBottom: 10 }}>
+                    <DateTimePicker
+                      value={reminderTime}
+                      mode="time"
+                      display="default"
+                      onChange={(event, selectedTime) => {
+                        if (selectedTime) {
+                          setReminderTime(selectedTime);
+                        }
+                      }}
+                    />
+                    <Text style={[styles.webNote, { color: theme.textSecondary, marginTop: 10 }]}>
+                      Note: Push notifications are not supported on web.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.timeButton, { backgroundColor: theme.card, borderColor: theme.border }]}
+                      onPress={() => setShowTimePicker(true)}
+                    >
+                      <Ionicons name="time-outline" size={20} color={theme.text} />
+                      <Text style={[styles.timeButtonText, { color: theme.text }]}>
+                        {reminderTime.toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </Text>
+                    </TouchableOpacity>
+                    {showTimePicker && (
+                      <DateTimePicker
+                        value={reminderTime}
+                        mode="time"
+                        display="default"
+                        onChange={(event, selectedTime) => {
+                          setShowTimePicker(false);
+                          if (selectedTime) {
+                            setReminderTime(selectedTime);
+                          }
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </View>
+            )}
           </View>
 
           {/* Color Selection */}
@@ -405,8 +501,36 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   previewText: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  reminderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reminderContainer: {
+    marginTop: 8,
+  },
+  timeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+  },
+  timeButtonText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  webNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 8,
+    marginLeft: 4,
   },
   colorGrid: {
     flexDirection: 'row',

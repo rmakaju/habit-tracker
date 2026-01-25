@@ -291,9 +291,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyDayCell: {
-    backgroundColor: '#393A40',
+    backgroundColor: '#ebebeb',
     borderWidth: 1,
-    borderColor: '#393A40',
+    borderColor: '#e0e0e0',
   },
   dayName: {
     fontSize: Platform.select({ android: 11, default: 10 }),
