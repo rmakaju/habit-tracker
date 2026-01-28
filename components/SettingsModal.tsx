@@ -35,6 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const { theme } = useTheme();
   const [localSettings, setLocalSettings] = useState(settings);
   const [permissionStatus, setPermissionStatus] = useState('Checking...');
+  const [notificationMessage, setNotificationMessage] = useState<string | null>(null);
   const [webDiagnostics, setWebDiagnostics] = useState<
     {
       hasNotificationApi: boolean;
@@ -66,6 +67,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     if (visible) {
       loadPermissionStatus();
+      setNotificationMessage(null);
       if (Platform.OS === 'web') {
         setWebDiagnostics(NotificationService.getWebDiagnostics());
       }
@@ -103,27 +105,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     value?: boolean; 
     onToggle?: () => void;
     type?: 'switch' | 'button';
-  }) => (
-    <View style={[styles.settingRow, { borderBottomColor: theme.border }]}>
-      <View style={styles.settingInfo}>
-        <Text style={[styles.settingTitle, { color: theme.text }]}>{title}</Text>
-        {subtitle && <Text style={[styles.settingSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>}
-      </View>
-      {type === 'switch' && (
-        <Switch
-          value={value}
-          onValueChange={onToggle}
-          trackColor={{ false: theme.border, true: theme.primary + '40' }}
-          thumbColor={value ? theme.primary : theme.textSecondary}
-        />
-      )}
-      {type === 'button' && (
-        <TouchableOpacity onPress={onToggle} style={styles.button}>
-          <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+  }) => {
+    const isButton = type === 'button';
+    const RowWrapper: any = isButton ? TouchableOpacity : View;
+    const rowProps = isButton
+      ? { onPress: onToggle, activeOpacity: 0.7, accessibilityRole: 'button' }
+      : {};
+
+    return (
+      <RowWrapper
+        {...rowProps}
+        style={[styles.settingRow, { borderBottomColor: theme.border }]}
+      >
+        <View style={styles.settingInfo}>
+          <Text style={[styles.settingTitle, { color: theme.text }]}>{title}</Text>
+          {subtitle && <Text style={[styles.settingSubtitle, { color: theme.textSecondary }]}>{subtitle}</Text>}
+        </View>
+        {type === 'switch' && (
+          <Switch
+            value={value}
+            onValueChange={onToggle}
+            trackColor={{ false: theme.border, true: theme.primary + '40' }}
+            thumbColor={value ? theme.primary : theme.textSecondary}
+          />
+        )}
+        {type === 'button' && (
+          <View style={styles.button}>
+            <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+          </View>
+        )}
+      </RowWrapper>
+    );
+  };
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
@@ -158,10 +171,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Text style={[styles.permissionValue, { color: theme.textSecondary }]}>{permissionStatus}</Text>
           </View>
           <SettingRow
+            title="Request permission"
+            subtitle="Ask the browser or OS to allow notifications"
+            type="button"
+            onToggle={async () => {
+              setNotificationMessage('Requesting permission...');
+              const success = await NotificationService.requestPermissions();
+              const status = await NotificationService.getPermissionStatus();
+              const label =
+                status === 'granted'
+                  ? 'Granted'
+                  : status === 'denied'
+                    ? 'Denied'
+                    : status === 'unavailable'
+                      ? 'Not supported'
+                      : 'Not requested';
+              setPermissionStatus(label);
+
+              if (!success) {
+                if (Platform.OS === 'web') {
+                  const diagnostics = NotificationService.getWebDiagnostics();
+                  setNotificationMessage(`Permission not granted. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
+                  Alert.alert(
+                    'Permission Not Granted',
+                    `Notifications are blocked or unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
+                  );
+                } else {
+                  setNotificationMessage('Permission not granted or unsupported.');
+                  Alert.alert('Permission Not Granted', 'Notifications are blocked or unsupported.');
+                }
+              } else {
+                setNotificationMessage('Permission granted. Try sending a test notification.');
+                Alert.alert('Permission Granted', 'Notifications are enabled.');
+              }
+            }}
+          />
+          <SettingRow
             title="Send test notification"
             subtitle="Verify notifications are working"
             type="button"
             onToggle={async () => {
+              setNotificationMessage('Sending test notification...');
               const success = await NotificationService.sendTestNotification();
               const status = await NotificationService.getPermissionStatus();
               const label =
@@ -175,8 +225,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               setPermissionStatus(label);
 
               if (!success) {
-                Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+                if (Platform.OS === 'web') {
+                  const diagnostics = NotificationService.getWebDiagnostics();
+                  setNotificationMessage(`Test failed. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
+                  Alert.alert(
+                    'Notification Failed',
+                    `Permission was not granted or notifications are unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
+                  );
+                } else {
+                  setNotificationMessage('Test failed. Permission not granted or unsupported.');
+                  Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+                }
               } else {
+                setNotificationMessage('Test sent. You should see a notification.');
                 Alert.alert('Test Sent', 'A test notification was sent.');
               }
             }}
@@ -186,6 +247,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             subtitle="Schedules a short-delay test"
             type="button"
             onToggle={async () => {
+              setNotificationMessage('Scheduling test notification...');
               const success = await NotificationService.sendTestNotificationAfterDelay(10);
               const status = await NotificationService.getPermissionStatus();
               const label =
@@ -199,8 +261,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               setPermissionStatus(label);
 
               if (!success) {
-                Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+                if (Platform.OS === 'web') {
+                  const diagnostics = NotificationService.getWebDiagnostics();
+                  setNotificationMessage(`Schedule failed. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
+                  Alert.alert(
+                    'Notification Failed',
+                    `Permission was not granted or notifications are unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
+                  );
+                } else {
+                  setNotificationMessage('Schedule failed. Permission not granted or unsupported.');
+                  Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
+                }
               } else {
+                setNotificationMessage('Test scheduled. It should fire in about 10 seconds.');
                 Alert.alert('Scheduled', 'A test notification will fire in about 10 seconds.');
               }
             }}
@@ -212,6 +285,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {webDiagnostics.hasNotificationApi ? 'API ✔︎' : 'API ✖︎'} · {webDiagnostics.isSecureContext ? 'Secure ✔︎' : 'Secure ✖︎'} · {webDiagnostics.hasServiceWorker ? 'SW ✔︎' : 'SW ✖︎'} · {webDiagnostics.visibilityState}
               </Text>
             </View>
+          )}
+          {Platform.OS === 'web' && webDiagnostics && (
+            <Text style={[styles.webNote, { color: theme.textSecondary }]}> 
+              {webDiagnostics.isSecureContext ? 'Secure context OK.' : 'Needs https or localhost.'} Notifications require user gesture and won’t work if blocked in browser settings.
+            </Text>
+          )}
+          {notificationMessage && (
+            <Text style={[styles.notificationMessage, { color: theme.textSecondary }]}>
+              {notificationMessage}
+            </Text>
           )}
         </View>
 
@@ -309,6 +392,18 @@ const styles = StyleSheet.create({
   },
   permissionValue: {
     fontSize: 14,
+  },
+  webNote: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+  },
+  notificationMessage: {
+    fontSize: 12,
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 4,
   },
   button: {
     padding: 5,
