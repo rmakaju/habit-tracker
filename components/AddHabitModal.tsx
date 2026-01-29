@@ -154,6 +154,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'custom'>('daily');
   const [customFrequency, setCustomFrequency] = useState(3);
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [goal, setGoal] = useState<number>();
   const [tags, setTags] = useState<string>('');
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -189,20 +190,51 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
     setWebTimeInput(formatTimeInput(reminderTime));
   }, [reminderTime]);
 
+  const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  const toggleDay = (index: number) => {
+    setSelectedDays(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(d => d !== index);
+      } else {
+        return [...prev, index].sort();
+      }
+    });
+  };
+
+  const handleFrequencyChange = (freq: 'daily' | 'weekly' | 'custom') => {
+    setFrequency(freq);
+    if (freq === 'weekly' && selectedDays.length === 0) {
+      // Default to today if no days selected
+      setSelectedDays([new Date().getDay()]);
+    }
+  };
+
   const handleSubmit = () => {
     if (habitName.trim()) {
-      onAddHabit({
+      const habitData: any = {
         name: habitName.trim(),
         color: selectedColor,
         icon: selectedIcon,
         createdAt: new Date(),
         category: selectedCategory || undefined,
         frequency,
-        customFrequency: frequency === 'custom' ? { daysPerWeek: customFrequency } : undefined,
         goal,
         tags: tags.trim() ? tags.split(',').map(tag => tag.trim()) : undefined,
         reminderTime: reminderEnabled ? reminderTime.toISOString() : undefined,
-      });
+      };
+
+      if (frequency === 'custom') {
+        habitData.customFrequency = { daysPerWeek: customFrequency };
+      } else if (frequency === 'weekly') {
+        habitData.customFrequency = { 
+          specificDays: selectedDays,
+          daysPerWeek: selectedDays.length 
+        };
+      }
+
+      onAddHabit(habitData);
+      
       // Reset form
       setHabitName('');
       setSelectedColor(PREDEFINED_COLORS[0]);
@@ -212,6 +244,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
       setSelectedCategory('');
       setFrequency('daily');
       setCustomFrequency(3);
+      setSelectedDays([]);
       setGoal(undefined);
       setTags('');
       setReminderEnabled(false);
@@ -406,7 +439,7 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
                     styles.frequencyOption,
                     frequency === freq && styles.selectedFrequency,
                   ]}
-                  onPress={() => setFrequency(freq)}
+                  onPress={() => handleFrequencyChange(freq)}
                 >
                   <Text style={[
                     styles.frequencyText,
@@ -417,6 +450,31 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
                 </TouchableOpacity>
               ))}
             </View>
+            
+            {frequency === 'weekly' && (
+              <View style={styles.daysContainer}>
+                <Text style={styles.customFrequencyLabel}>Select days:</Text>
+                <View style={styles.daysGrid}>
+                  {DAYS.map((day, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.dayButton,
+                        selectedDays.includes(index) && styles.selectedDayButton,
+                        { borderColor: selectedColor }
+                      ]}
+                      onPress={() => toggleDay(index)}
+                    >
+                      <Text style={[
+                        styles.dayText,
+                        selectedDays.includes(index) && styles.selectedDayText
+                      ]}>{day}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             {frequency === 'custom' && (
               <View style={styles.customFrequencyContainer}>
                 <Text style={styles.customFrequencyLabel}>Times per week:</Text>
@@ -725,6 +783,35 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   selectedCustomFrequencyText: {
+    color: '#fff',
+  },
+  daysContainer: {
+    marginTop: 12,
+  },
+  daysGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  dayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  selectedDayButton: {
+    backgroundColor: '#333',
+    borderColor: '#333',
+  },
+  dayText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  selectedDayText: {
     color: '#fff',
   },
   helperText: {

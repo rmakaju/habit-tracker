@@ -8,7 +8,6 @@ import { Habit } from '../types';
 try {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
       shouldShowBanner: true,
@@ -176,9 +175,8 @@ export class NotificationService {
       return true;
     }
 
-    if (!Device.isDevice) {
-      console.log('Must use physical device for Push Notifications');
-      return false;
+    if (!Device.isDevice && Platform.OS !== 'web') {
+      console.log('Using an emulator: Push Notifications (FCM/APNS) may not work, but local notifications might.');
     }
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -190,16 +188,17 @@ export class NotificationService {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+      console.log('Failed to get notification permissions!');
       return false;
     }
 
     if (Platform.OS === 'android') {
-      Notifications.setNotificationChannelAsync('habit-reminders', {
+      await Notifications.setNotificationChannelAsync('habit-reminders', {
         name: 'Habit Reminders',
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
       });
     }
 
@@ -230,12 +229,15 @@ export class NotificationService {
           title: 'Habit Reminder',
           body: `Time to work on: ${habit.name}`,
           data: { habitId: habit.id },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: reminderTime.getHours(),
           minute: reminderTime.getMinutes(),
           repeats: true,
+          channelId: 'habit-reminders',
         },
       });
 
@@ -261,9 +263,15 @@ export class NotificationService {
         return await showWebNotification('Test Notification', 'Notifications are working correctly.');
       }
 
-      await Notifications.presentNotificationAsync({
-        title: 'Test Notification',
-        body: 'Notifications are working correctly.',
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Test Notification',
+          body: 'Notifications are working correctly.',
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
+          channelId: 'habit-reminders',
+        },
+        trigger: null, // Send immediately
       });
 
       return true;
@@ -295,9 +303,13 @@ export class NotificationService {
         content: {
           title: 'Test Notification',
           body: 'This was scheduled a few seconds ago.',
+          channelId: 'habit-reminders',
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: Math.max(1, Math.floor(seconds)),
+          repeats: false,
+          channelId: 'habit-reminders',
         },
       });
 
@@ -368,13 +380,16 @@ export class NotificationService {
           title: 'Weekly Habit Reminder',
           body: `Don't forget: ${habit.name}`,
           data: { habitId: habit.id },
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
           weekday: weekday,
           hour: reminderTime.getHours(),
           minute: reminderTime.getMinutes(),
           repeats: true,
+          channelId: 'habit-reminders',
         },
       });
 

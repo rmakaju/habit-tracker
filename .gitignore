@@ -11,6 +11,8 @@ dist/
 web-build/
 
 # Native
+android/
+ios/
 *.orig.*
 *.jks
 *.p8
@@ -70,6 +72,9 @@ pids
 .idea/
 *.swp
 *.swo
+
+# Local task tracking
+to-do.md
 
 # OS generated files
 Thumbs.db
