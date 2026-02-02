@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   Animated,
+  Platform,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,7 +48,9 @@ function MainApp() {
   }, [refreshKey]);
 
   const initializeNotifications = async () => {
-    await NotificationService.requestPermissions();
+    if (Platform.OS !== 'web') {
+      await NotificationService.requestPermissions();
+    }
   };
 
   const loadData = async () => {
