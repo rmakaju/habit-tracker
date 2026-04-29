@@ -37,6 +37,7 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState<'grid' | 'list' | 'analytics' | 'calendar'>('grid');
   const [refreshKey, setRefreshKey] = useState(0);
   const [animatedValues] = useState(new Map<string, Animated.Value>());
+  const [isReorderMode, setIsReorderMode] = useState(false);
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -46,6 +47,25 @@ function MainApp() {
     
     initializeApp();
   }, [refreshKey]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+
+    const registerServiceWorker = async () => {
+      try {
+        const navigatorRef = (globalThis as any).navigator;
+        if (navigatorRef?.serviceWorker?.register) {
+          await navigatorRef.serviceWorker.register('/service-worker.js');
+        }
+      } catch (error) {
+        console.warn('Service worker registration failed:', error);
+      }
+    };
+
+    registerServiceWorker();
+  }, []);
 
   const initializeNotifications = async () => {
     if (Platform.OS !== 'web') {
@@ -177,6 +197,23 @@ function MainApp() {
     setRefreshKey(prev => prev + 1);
   };
 
+  const moveHabit = (habitId: string, direction: -1 | 1) => {
+    const orderedHabits = [...habits].sort((a, b) => a.order - b.order);
+    const currentIndex = orderedHabits.findIndex(habit => habit.id === habitId);
+    if (currentIndex === -1) return;
+
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= orderedHabits.length) return;
+
+    const updated = [...orderedHabits];
+    const temp = updated[currentIndex];
+    updated[currentIndex] = updated[nextIndex];
+    updated[nextIndex] = temp;
+
+    habitStorage.reorderHabits(updated.map(habit => habit.id));
+    setRefreshKey(prev => prev + 1);
+  };
+
   const getTodayString = () => {
     return new Date().toISOString().split('T')[0];
   };
@@ -247,6 +284,22 @@ function MainApp() {
                             </View>
                           </View>
                           <View style={styles.habitActions}>
+                            {Platform.OS === 'web' && isReorderMode && (
+                              <View style={styles.reorderActions}>
+                                <TouchableOpacity
+                                  onPress={() => moveHabit(habit.id, -1)}
+                                  style={styles.reorderButton}
+                                >
+                                  <Ionicons name="chevron-up" size={16} color={theme.textSecondary} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => moveHabit(habit.id, 1)}
+                                  style={styles.reorderButton}
+                                >
+                                  <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+                                </TouchableOpacity>
+                              </View>
+                            )}
                             <TouchableOpacity
                               onPress={() => handleEditHabit(habit)}
                               style={styles.editButton}
@@ -309,6 +362,22 @@ function MainApp() {
                           </View>
                         </View>
                         <View style={styles.habitActions}>
+                          {Platform.OS === 'web' && isReorderMode && (
+                            <View style={styles.reorderActions}>
+                              <TouchableOpacity
+                                onPress={() => moveHabit(habit.id, -1)}
+                                style={styles.reorderButton}
+                              >
+                                <Ionicons name="chevron-up" size={16} color={theme.textSecondary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => moveHabit(habit.id, 1)}
+                                style={styles.reorderButton}
+                              >
+                                <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
+                              </TouchableOpacity>
+                            </View>
+                          )}
                           <TouchableOpacity
                             onPress={() => handleEditHabit(habit)}
                             style={styles.editButton}
@@ -392,6 +461,18 @@ function MainApp() {
       <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <Text style={[styles.headerTitle, { color: theme.text }]}>Habit Tracker</Text>
         <View style={styles.headerActions}>
+          {Platform.OS === 'web' && activeTab === 'grid' && (
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setIsReorderMode(prev => !prev)}
+            >
+              <Ionicons
+                name={isReorderMode ? 'checkmark-done-outline' : 'swap-vertical-outline'}
+                size={22}
+                color={theme.text}
+              />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.headerButton}
             onPress={() => setShowSettingsModal(true)}
@@ -719,6 +800,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  reorderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reorderButton: {
+    padding: 4,
+    borderRadius: 6,
   },
   editButton: {
     padding: 6,

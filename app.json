@@ -37,7 +37,15 @@
     ],
     "web": {
       "bundler": "metro",
-      "favicon": "assets/favicon.png"
+      "favicon": "assets/favicon.png",
+      "name": "Habit Tracker",
+      "shortName": "Habits",
+      "description": "Track habits with a GitHub-style grid and analytics.",
+      "display": "standalone",
+      "themeColor": "#0f172a",
+      "backgroundColor": "#ffffff",
+      "startUrl": ".",
+      "scope": "/"
     },
     "platforms": [
       "ios",

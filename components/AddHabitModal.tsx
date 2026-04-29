@@ -210,6 +210,24 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
     }
   };
 
+  const isValidHexColor = (hex: string): boolean => {
+    const hexRegex = /^#?([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/;
+    return hexRegex.test(hex.trim());
+  };
+
+  const normalizeHexColor = (hex: string): string => {
+    const trimmedHex = hex.trim();
+    return (trimmedHex.startsWith('#') ? trimmedHex : `#${trimmedHex}`).toUpperCase();
+  };
+
+  const handleCustomColorChange = (text: string) => {
+    setCustomColor(text);
+
+    if (isValidHexColor(text)) {
+      setSelectedColor(normalizeHexColor(text));
+    }
+  };
+
   const handleSubmit = () => {
     if (habitName.trim()) {
       const habitData: any = {
@@ -238,6 +256,8 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
       // Reset form
       setHabitName('');
       setSelectedColor(PREDEFINED_COLORS[0]);
+      setCustomColor('');
+      setShowCustomColorInput(false);
       setSelectedIcon(PREDEFINED_ICONS[0]);
       setCustomIcon('');
       setShowCustomIconInput(false);
@@ -322,21 +342,24 @@ export const AddHabitModal: React.FC<AddHabitModalProps> = ({
               <View style={styles.customColorContainer}>
                 <Text style={styles.customColorLabel}>Enter hex color (e.g., #ff5733):</Text>
                 <TextInput
-                  style={styles.customColorInput}
+                  style={[
+                    styles.customColorInput,
+                    customColor && !isValidHexColor(customColor) && styles.invalidColorInput,
+                  ]}
                   value={customColor}
-                  onChangeText={(text) => {
-                    setCustomColor(text);
-                    if (text.match(/^#[0-9A-F]{6}$/i)) {
-                      setSelectedColor(text);
-                    }
-                  }}
+                  onChangeText={handleCustomColorChange}
                   placeholder="#ff5733"
                   autoCapitalize="none"
                   maxLength={7}
                 />
                 <Text style={styles.customColorHelper}>
-                  Use any hex color code (including #)
+                  Use 3 or 6 hex characters, with or without #
                 </Text>
+                {customColor && !isValidHexColor(customColor) && (
+                  <Text style={styles.customColorError}>
+                    Please enter a valid hex color.
+                  </Text>
+                )}
               </View>
             )}
           </View>
@@ -955,9 +978,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontFamily: 'monospace',
   },
+  invalidColorInput: {
+    borderColor: '#ff4757',
+  },
   customColorHelper: {
     fontSize: 12,
     color: '#666',
     fontStyle: 'italic',
+  },
+  customColorError: {
+    fontSize: 12,
+    color: '#ff4757',
+    marginTop: 4,
   },
 });

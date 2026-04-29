@@ -75,6 +75,14 @@ A React Native habit tracking application built with Expo, featuring GitHub-styl
 | **Android** | ✅ Functional | Basic functionality working |
 | **Web** | ✅ Functional | Responsive design, some mobile features limited |
 
+## 🖥️ Desktop (macOS via Browser Install)
+
+You can install the web app as a desktop shortcut (PWA) from Chrome or Edge on macOS:
+
+1. Open the web app.
+2. Click the install icon in the address bar, or open the browser menu and select **Install Habit Tracker**.
+3. The app will appear in Applications and can be pinned to the Dock.
+
 ## 🎮 Usage Guide
 
 ### Adding New Habits
