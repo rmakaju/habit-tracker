@@ -9,6 +9,7 @@ import {
   Share,
   Modal,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,14 @@ interface SettingsModalProps {
   onUpdateSettings: (settings: Partial<AppSettings>) => void;
   onExportData: () => string;
   onImportData: (data: string) => boolean;
+  isSignedIn: boolean;
+  userEmail?: string | null;
+  isSyncing?: boolean;
+  lastSyncedAt?: string | null;
+  syncError?: string | null;
+  onOpenAuth: () => void;
+  onSignOut: () => void;
+  onSyncNow: () => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -31,6 +40,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   settings,
   onUpdateSettings,
   onExportData,
+  isSignedIn,
+  userEmail,
+  isSyncing = false,
+  lastSyncedAt,
+  syncError,
+  onOpenAuth,
+  onSignOut,
+  onSyncNow,
 }) => {
   const { theme } = useTheme();
   const [localSettings, setLocalSettings] = useState(settings);
@@ -138,6 +155,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     );
   };
 
+  const syncSubtitle = () => {
+    if (!isSignedIn) return 'Sign in to sync your data across devices.';
+    if (isSyncing) return 'Syncing now...';
+    if (lastSyncedAt) return `Last synced ${new Date(lastSyncedAt).toLocaleString()}`;
+    return 'Ready to sync.';
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -147,181 +171,139 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <Ionicons name="close" size={24} color={theme.text} />
           </TouchableOpacity>
         </View>
-
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Appearance</Text>
-          <SettingRow
-            title="Dark Mode"
-            subtitle="Use dark theme throughout the app"
-            value={localSettings.darkMode}
-            onToggle={() => handleToggle('darkMode')}
-          />
-        </View>
-
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Notifications</Text>
-          <SettingRow
-            title="Daily Reminders"
-            subtitle="Get reminded to complete your habits"
-            value={localSettings.notifications}
-            onToggle={() => handleToggle('notifications')}
-          />
-          <View style={[styles.permissionRow, { borderBottomColor: theme.border }]}> 
-            <Text style={[styles.permissionLabel, { color: theme.text }]}>Permission</Text>
-            <Text style={[styles.permissionValue, { color: theme.textSecondary }]}>{permissionStatus}</Text>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={[styles.section, { backgroundColor: theme.surface }]}> 
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Appearance</Text>
+            <SettingRow
+              title="Dark Mode"
+              subtitle="Use dark theme throughout the app"
+              value={localSettings.darkMode}
+              onToggle={() => handleToggle('darkMode')}
+            />
           </View>
-          <SettingRow
-            title="Request permission"
-            subtitle="Ask the browser or OS to allow notifications"
-            type="button"
-            onToggle={async () => {
-              setNotificationMessage('Requesting permission...');
-              const success = await NotificationService.requestPermissions();
-              const status = await NotificationService.getPermissionStatus();
-              const label =
-                status === 'granted'
-                  ? 'Granted'
-                  : status === 'denied'
-                    ? 'Denied'
-                    : status === 'unavailable'
-                      ? 'Not supported'
-                      : 'Not requested';
-              setPermissionStatus(label);
 
-              if (!success) {
-                if (Platform.OS === 'web') {
-                  const diagnostics = NotificationService.getWebDiagnostics();
-                  setNotificationMessage(`Permission not granted. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
-                  Alert.alert(
-                    'Permission Not Granted',
-                    `Notifications are blocked or unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
-                  );
-                } else {
-                  setNotificationMessage('Permission not granted or unsupported.');
-                  Alert.alert('Permission Not Granted', 'Notifications are blocked or unsupported.');
-                }
-              } else {
-                setNotificationMessage('Permission granted. Try sending a test notification.');
-                Alert.alert('Permission Granted', 'Notifications are enabled.');
-              }
-            }}
-          />
-          <SettingRow
-            title="Send test notification"
-            subtitle="Verify notifications are working"
-            type="button"
-            onToggle={async () => {
-              setNotificationMessage('Sending test notification...');
-              const success = await NotificationService.sendTestNotification();
-              const status = await NotificationService.getPermissionStatus();
-              const label =
-                status === 'granted'
-                  ? 'Granted'
-                  : status === 'denied'
-                    ? 'Denied'
-                    : status === 'unavailable'
-                      ? 'Not supported'
-                      : 'Not requested';
-              setPermissionStatus(label);
-
-              if (!success) {
-                if (Platform.OS === 'web') {
-                  const diagnostics = NotificationService.getWebDiagnostics();
-                  setNotificationMessage(`Test failed. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
-                  Alert.alert(
-                    'Notification Failed',
-                    `Permission was not granted or notifications are unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
-                  );
-                } else {
-                  setNotificationMessage('Test failed. Permission not granted or unsupported.');
-                  Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
-                }
-              } else {
-                setNotificationMessage('Test sent. You should see a notification.');
-                Alert.alert('Test Sent', 'A test notification was sent.');
-              }
-            }}
-          />
-          <SettingRow
-            title="Send test in 10 seconds"
-            subtitle="Schedules a short-delay test"
-            type="button"
-            onToggle={async () => {
-              setNotificationMessage('Scheduling test notification...');
-              const success = await NotificationService.sendTestNotificationAfterDelay(10);
-              const status = await NotificationService.getPermissionStatus();
-              const label =
-                status === 'granted'
-                  ? 'Granted'
-                  : status === 'denied'
-                    ? 'Denied'
-                    : status === 'unavailable'
-                      ? 'Not supported'
-                      : 'Not requested';
-              setPermissionStatus(label);
-
-              if (!success) {
-                if (Platform.OS === 'web') {
-                  const diagnostics = NotificationService.getWebDiagnostics();
-                  setNotificationMessage(`Schedule failed. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
-                  Alert.alert(
-                    'Notification Failed',
-                    `Permission was not granted or notifications are unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
-                  );
-                } else {
-                  setNotificationMessage('Schedule failed. Permission not granted or unsupported.');
-                  Alert.alert('Notification Failed', 'Permission was not granted or notifications are unsupported.');
-                }
-              } else {
-                setNotificationMessage('Test scheduled. It should fire in about 10 seconds.');
-                Alert.alert('Scheduled', 'A test notification will fire in about 10 seconds.');
-              }
-            }}
-          />
-          {Platform.OS === 'web' && webDiagnostics && (
+          <View style={[styles.section, { backgroundColor: theme.surface }]}> 
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Notifications</Text>
+            <SettingRow
+              title="Daily Reminders"
+              subtitle="Get reminded to complete your habits"
+              value={localSettings.notifications}
+              onToggle={() => handleToggle('notifications')}
+            />
             <View style={[styles.permissionRow, { borderBottomColor: theme.border }]}> 
-              <Text style={[styles.permissionLabel, { color: theme.text }]}>Web Support</Text>
-              <Text style={[styles.permissionValue, { color: theme.textSecondary }]}> 
-                {webDiagnostics.hasNotificationApi ? 'API ✔︎' : 'API ✖︎'} · {webDiagnostics.isSecureContext ? 'Secure ✔︎' : 'Secure ✖︎'} · {webDiagnostics.hasServiceWorker ? 'SW ✔︎' : 'SW ✖︎'} · {webDiagnostics.visibilityState}
-              </Text>
+              <Text style={[styles.permissionLabel, { color: theme.text }]}>Permission</Text>
+              <Text style={[styles.permissionValue, { color: theme.textSecondary }]}>{permissionStatus}</Text>
             </View>
-          )}
-          {Platform.OS === 'web' && webDiagnostics && (
-            <Text style={[styles.webNote, { color: theme.textSecondary }]}> 
-              {webDiagnostics.isSecureContext ? 'Secure context OK.' : 'Needs https or localhost.'} Notifications require user gesture and won’t work if blocked in browser settings.
-            </Text>
-          )}
-          {notificationMessage && (
-            <Text style={[styles.notificationMessage, { color: theme.textSecondary }]}>
-              {notificationMessage}
-            </Text>
-          )}
-        </View>
+            <SettingRow
+              title="Request permission"
+              subtitle="Ask the browser or OS to allow notifications"
+              type="button"
+              onToggle={async () => {
+                setNotificationMessage('Requesting permission...');
+                const success = await NotificationService.requestPermissions();
+                const status = await NotificationService.getPermissionStatus();
+                const label =
+                  status === 'granted'
+                    ? 'Granted'
+                    : status === 'denied'
+                      ? 'Denied'
+                      : status === 'unavailable'
+                        ? 'Not supported'
+                        : 'Not requested';
+                setPermissionStatus(label);
 
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Data</Text>
-          <SettingRow
-            title="Export Data"
-            subtitle="Share your habit data as JSON"
-            type="button"
-            onToggle={handleExport}
-          />
-          <SettingRow
-            title="Import Data"
-            subtitle="Restore data from backup"
-            type="button"
-            onToggle={() => Alert.alert('Import', 'Import functionality would open file picker')}
-          />
-        </View>
+                if (!success) {
+                  if (Platform.OS === 'web') {
+                    const diagnostics = NotificationService.getWebDiagnostics();
+                    setNotificationMessage(`Permission not granted. API: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}, Secure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}, Permission: ${diagnostics?.permission ?? 'unknown'}.`);
+                    Alert.alert(
+                      'Permission Not Granted',
+                      `Notifications are blocked or unsupported.\n\nAPI: ${diagnostics?.hasNotificationApi ? 'available' : 'missing'}\nPermission: ${diagnostics?.permission ?? 'unknown'}\nSecure: ${diagnostics?.isSecureContext ? 'yes' : 'no'}\nVisibility: ${diagnostics?.visibilityState ?? 'unknown'}`
+                    );
+                  } else {
+                    setNotificationMessage('Permission not granted or unsupported.');
+                    Alert.alert('Permission Not Granted', 'Notifications are blocked or unsupported.');
+                  }
+                } else {
+                  setNotificationMessage('Permission granted.');
+                  Alert.alert('Permission Granted', 'Notifications are enabled.');
+                }
+              }}
+            />
+            {Platform.OS === 'web' && webDiagnostics && (
+              <View style={[styles.permissionRow, { borderBottomColor: theme.border }]}> 
+                <Text style={[styles.permissionLabel, { color: theme.text }]}>Web Support</Text>
+                <Text style={[styles.permissionValue, { color: theme.textSecondary }]}> 
+                  {webDiagnostics.hasNotificationApi ? 'API ✔︎' : 'API ✖︎'} · {webDiagnostics.isSecureContext ? 'Secure ✔︎' : 'Secure ✖︎'} · {webDiagnostics.hasServiceWorker ? 'SW ✔︎' : 'SW ✖︎'} · {webDiagnostics.visibilityState}
+                </Text>
+              </View>
+            )}
+            {Platform.OS === 'web' && webDiagnostics && (
+              <Text style={[styles.webNote, { color: theme.textSecondary }]}> 
+                {webDiagnostics.isSecureContext ? 'Secure context OK.' : 'Needs https or localhost.'} Notifications require user gesture and won’t work if blocked in browser settings.
+              </Text>
+            )}
+            {notificationMessage && (
+              <Text style={[styles.notificationMessage, { color: theme.textSecondary }]}>
+                {notificationMessage}
+              </Text>
+            )}
+          </View>
 
-        <View style={[styles.section, { backgroundColor: theme.surface }]}>
-          <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>About</Text>
-          <SettingRow
-            title="Version"
-            subtitle="1.0.0"
-            type="button"
-          />
-        </View>
+          <View style={[styles.section, { backgroundColor: theme.surface }]}> 
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Cloud Sync</Text>
+            <SettingRow
+              title={isSignedIn ? 'Account' : 'Sign in'}
+              subtitle={isSignedIn ? userEmail || 'Signed in' : 'Sync across devices'}
+              type="button"
+              onToggle={onOpenAuth}
+            />
+            <SettingRow
+              title="Sync now"
+              subtitle={syncSubtitle()}
+              type="button"
+              onToggle={onSyncNow}
+            />
+            {syncError ? (
+              <Text style={[styles.notificationMessage, { color: '#c0392b' }]}>
+                {syncError}
+              </Text>
+            ) : null}
+            {isSignedIn ? (
+              <SettingRow
+                title="Sign out"
+                subtitle="Stop syncing this device"
+                type="button"
+                onToggle={onSignOut}
+              />
+            ) : null}
+          </View>
+
+          <View style={[styles.section, { backgroundColor: theme.surface }]}> 
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Data</Text>
+            <SettingRow
+              title="Export Data"
+              subtitle="Share your habit data as JSON"
+              type="button"
+              onToggle={handleExport}
+            />
+            <SettingRow
+              title="Import Data"
+              subtitle="Restore data from backup"
+              type="button"
+              onToggle={() => Alert.alert('Import', 'Import functionality would open file picker')}
+            />
+          </View>
+
+          <View style={[styles.section, { backgroundColor: theme.surface }]}> 
+            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>About</Text>
+            <SettingRow
+              title="Version"
+              subtitle="1.0.0"
+              type="button"
+            />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -407,5 +389,8 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 5,
+  },
+  scrollContent: {
+    paddingBottom: 24,
   },
 });

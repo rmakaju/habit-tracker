@@ -3,11 +3,27 @@ import { PerformanceMonitor, StorageOptimizer } from './performance';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+export interface SyncPayload {
+  updatedAt: string;
+  data: {
+    habits: Habit[];
+    entries: HabitEntry[];
+    categories: HabitCategory[];
+    settings: AppSettings;
+  };
+}
+
+type StorageChangeListener = (payload: SyncPayload) => void;
+
 // Enhanced storage with persistence for web
 class HabitStorage {
   private habits: Habit[] = [];
   private entries: HabitEntry[] = [];
   private categories: HabitCategory[] = [];
+  private syncMeta: { updatedAt: string; lastSyncedAt: string | null } = {
+    updatedAt: new Date(0).toISOString(),
+    lastSyncedAt: null,
+  };
   private settings: AppSettings = {
     darkMode: false,
     notifications: true,
@@ -20,21 +36,26 @@ class HabitStorage {
     HABITS: 'habit_tracker_habits',
     ENTRIES: 'habit_tracker_entries',
     CATEGORIES: 'habit_tracker_categories',
-    SETTINGS: 'habit_tracker_settings'
+    SETTINGS: 'habit_tracker_settings',
+    SYNC_META: 'habit_tracker_sync_meta'
   };
 
   private isInitialized = false;
   private initializationPromise: Promise<void> | null = null;
+  private listeners = new Set<StorageChangeListener>();
+  private suppressNotify = false;
 
   constructor() {
     this.initializationPromise = this.initializeStorage();
   }
 
   private async initializeStorage() {
+    this.suppressNotify = true;
     await this.loadFromStorage();
     this.initializeDefaultCategories();
     await this.initializeDemoHabits();
     this.isInitialized = true;
+    this.suppressNotify = false;
   }
 
   // Storage persistence methods
@@ -79,6 +100,14 @@ class HabitStorage {
       if (categoriesData) this.categories = JSON.parse(categoriesData);
       const settingsData = localStorage.getItem(this.STORAGE_KEYS.SETTINGS);
       if (settingsData) this.settings = { ...this.settings, ...JSON.parse(settingsData) };
+      const syncMetaData = localStorage.getItem(this.STORAGE_KEYS.SYNC_META);
+      if (syncMetaData) {
+        const parsed = JSON.parse(syncMetaData);
+        this.syncMeta = {
+          updatedAt: parsed.updatedAt || this.syncMeta.updatedAt,
+          lastSyncedAt: parsed.lastSyncedAt ?? this.syncMeta.lastSyncedAt,
+        };
+      }
     } catch (error) {
       console.error('Failed to load data from localStorage:', error);
     }
@@ -94,6 +123,14 @@ class HabitStorage {
       if (categoriesData) this.categories = JSON.parse(categoriesData);
       const settingsData = await AsyncStorage.getItem(this.STORAGE_KEYS.SETTINGS);
       if (settingsData) this.settings = { ...this.settings, ...JSON.parse(settingsData) };
+      const syncMetaData = await AsyncStorage.getItem(this.STORAGE_KEYS.SYNC_META);
+      if (syncMetaData) {
+        const parsed = JSON.parse(syncMetaData);
+        this.syncMeta = {
+          updatedAt: parsed.updatedAt || this.syncMeta.updatedAt,
+          lastSyncedAt: parsed.lastSyncedAt ?? this.syncMeta.lastSyncedAt,
+        };
+      }
     } catch (error) {
       console.error('Failed to load data from AsyncStorage:', error);
     }
@@ -101,6 +138,7 @@ class HabitStorage {
 
   // Clear all data (useful for testing or reset)
   clearAllData(): void {
+    this.markLocalUpdate();
     this.habits = [];
     this.entries = [];
     this.categories = [];
@@ -117,6 +155,7 @@ class HabitStorage {
       this.removeItem(this.STORAGE_KEYS.ENTRIES);
       this.removeItem(this.STORAGE_KEYS.CATEGORIES);
       this.removeItem(this.STORAGE_KEYS.SETTINGS);
+      this.removeItem(this.STORAGE_KEYS.SYNC_META);
     } catch (error) {
       console.error('Failed to clear storage:', error);
     }
@@ -136,13 +175,14 @@ class HabitStorage {
     }
   }
 
-  private async saveToStorage(): Promise<void> {
+  private async saveToStorage(options?: { notify?: boolean }): Promise<void> {
     if (Platform.OS === 'web') {
       try {
         localStorage.setItem(this.STORAGE_KEYS.HABITS, JSON.stringify(this.habits));
         localStorage.setItem(this.STORAGE_KEYS.ENTRIES, JSON.stringify(this.entries));
         localStorage.setItem(this.STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
         localStorage.setItem(this.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+        localStorage.setItem(this.STORAGE_KEYS.SYNC_META, JSON.stringify(this.syncMeta));
       } catch (error) {
         console.error('Failed to save data to localStorage:', error);
       }
@@ -152,10 +192,63 @@ class HabitStorage {
         await AsyncStorage.setItem(this.STORAGE_KEYS.ENTRIES, JSON.stringify(this.entries));
         await AsyncStorage.setItem(this.STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
         await AsyncStorage.setItem(this.STORAGE_KEYS.SETTINGS, JSON.stringify(this.settings));
+        await AsyncStorage.setItem(this.STORAGE_KEYS.SYNC_META, JSON.stringify(this.syncMeta));
       } catch (error) {
         console.error('Failed to save data to AsyncStorage:', error);
       }
     }
+
+    if (options?.notify !== false) {
+      this.notifyChange();
+    }
+  }
+
+  private markLocalUpdate(): void {
+    this.syncMeta.updatedAt = new Date().toISOString();
+  }
+
+  private notifyChange(): void {
+    if (this.suppressNotify) return;
+    const payload = this.getSyncPayload();
+    this.listeners.forEach(listener => listener(payload));
+  }
+
+  subscribe(listener: StorageChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  getSyncMeta(): { updatedAt: string; lastSyncedAt: string | null } {
+    return this.syncMeta;
+  }
+
+  setLastSyncedAt(date: string | null): void {
+    this.syncMeta.lastSyncedAt = date;
+    this.saveToStorage({ notify: false });
+  }
+
+  getSyncPayload(): SyncPayload {
+    return {
+      updatedAt: this.syncMeta.updatedAt,
+      data: {
+        habits: this.habits,
+        entries: this.entries,
+        categories: this.categories,
+        settings: this.settings,
+      },
+    };
+  }
+
+  applySyncPayload(payload: SyncPayload): void {
+    this.suppressNotify = true;
+    this.habits = payload.data.habits || [];
+    this.entries = payload.data.entries || [];
+    this.categories = payload.data.categories || [];
+    this.settings = payload.data.settings || this.settings;
+    this.syncMeta.updatedAt = payload.updatedAt || new Date().toISOString();
+    this.syncMeta.lastSyncedAt = new Date().toISOString();
+    this.saveToStorage({ notify: false });
+    this.suppressNotify = false;
   }
 
   private initializeDefaultCategories(): void {
@@ -169,6 +262,7 @@ class HabitStorage {
         { id: '5', name: 'Creativity', color: '#fd79a8', icon: '🎨' },
         { id: '6', name: 'Social', color: '#45b7d1', icon: '👥' },
       ];
+      this.markLocalUpdate();
       this.saveToStorage();
     }
   }
@@ -240,6 +334,7 @@ class HabitStorage {
         });
       }
 
+      this.markLocalUpdate();
       await this.saveToStorage();
     }
   }
@@ -258,6 +353,7 @@ class HabitStorage {
 
   // Habits management
   addHabit(habit: Omit<Habit, 'id' | 'order'>): Habit {
+    this.markLocalUpdate();
     const newHabit: Habit = {
       ...habit,
       id: Date.now().toString(),
@@ -279,12 +375,14 @@ class HabitStorage {
   updateHabit(habitId: string, updates: Partial<Habit>): void {
     const index = this.habits.findIndex(h => h.id === habitId);
     if (index !== -1) {
+      this.markLocalUpdate();
       this.habits[index] = { ...this.habits[index], ...updates };
       this.saveToStorage();
     }
   }
 
   reorderHabits(habitIds: string[]): void {
+    this.markLocalUpdate();
     habitIds.forEach((id, index) => {
       const habit = this.habits.find(h => h.id === id);
       if (habit) {
@@ -295,6 +393,7 @@ class HabitStorage {
   }
 
   deleteHabit(habitId: string): void {
+    this.markLocalUpdate();
     this.habits = this.habits.filter(h => h.id !== habitId);
     this.entries = this.entries.filter(e => e.habitId !== habitId);
     this.saveToStorage();
@@ -302,6 +401,7 @@ class HabitStorage {
 
   // Entries management
   toggleHabitEntry(habitId: string, date: string): void {
+    this.markLocalUpdate();
     const existingEntry = this.entries.find(
       e => e.habitId === habitId && e.date === date
     );
@@ -451,6 +551,7 @@ class HabitStorage {
   }
 
   addCategory(category: Omit<HabitCategory, 'id'>): HabitCategory {
+    this.markLocalUpdate();
     const newCategory: HabitCategory = {
       ...category,
       id: Date.now().toString(),
@@ -466,6 +567,7 @@ class HabitStorage {
   }
 
   updateSettings(updates: Partial<AppSettings>): void {
+    this.markLocalUpdate();
     this.settings = { ...this.settings, ...updates };
     this.saveToStorage();
   }
@@ -484,6 +586,7 @@ class HabitStorage {
   importData(jsonData: string): boolean {
     try {
       const data = JSON.parse(jsonData);
+      this.markLocalUpdate();
       if (data.habits) this.habits = data.habits;
       if (data.entries) this.entries = data.entries;
       if (data.categories) this.categories = data.categories;

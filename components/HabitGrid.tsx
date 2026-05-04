@@ -75,6 +75,13 @@ export const HabitGrid: React.FC<HabitGridProps> = ({
   entries,
   onDatePress,
 }) => {
+  const toLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Generate last 105 days (15 weeks)
   const generateDates = () => {
     const dates = [];
@@ -83,7 +90,7 @@ export const HabitGrid: React.FC<HabitGridProps> = ({
     for (let i = 104; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
       dates.push(dateString);
     }
     return dates;
@@ -107,7 +114,7 @@ export const HabitGrid: React.FC<HabitGridProps> = ({
               const globalIndex = weekIndex * 7 + dayIndex;
               return (
                 <ContributionSquare
-                  key={date}
+                  key={`${date}-${globalIndex}`}
                   date={date}
                   completed={entries[date] || false}
                   color={habitColor}

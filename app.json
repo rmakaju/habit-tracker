@@ -2,6 +2,7 @@
   "expo": {
     "name": "Habit Tracker",
     "slug": "habit-tracker",
+    "scheme": "exp+habit-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "assets/icon.png",
@@ -35,6 +36,15 @@
       ],
       "expo-font"
     ],
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/0be237f2-55e5-483d-966f-26d8138ef22b"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "web": {
       "bundler": "metro",
       "favicon": "assets/favicon.png",

@@ -11,6 +11,8 @@ A React Native habit tracking application built with Expo, featuring GitHub-styl
 - **Analytics Dashboard**: View streaks, completion rates, and progress statistics
 - **Smart Notifications**: Customizable habit reminders (mobile only)
 - **Data Persistence**: Local storage with performance optimizations
+- **Cloud Sync (Supabase)**: Sync habits across devices
+- **Android Widgets**: Habit grid widgets with tap-to-check-off
 
 ## 🏗️ Project Structure
 
@@ -66,6 +68,75 @@ A React Native habit tracking application built with Expo, featuring GitHub-styl
    - Press `i` for iOS simulator
    - Press `a` for Android emulator
    - Press `w` for web browser
+
+## ☁️ Cloud Sync (Supabase)
+
+This app uses Supabase Auth + a single `user_data` table for sync.
+
+1. Create a Supabase project
+2. In **Settings → API**, grab:
+   - Project URL (looks like `https://<id>.supabase.co`)
+   - anon public key
+3. Update the values in [utils/supabaseClient.ts](utils/supabaseClient.ts)
+4. In Supabase **SQL Editor**, run:
+
+```sql
+create table if not exists public.user_data (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.user_data enable row level security;
+
+create policy "Users can read own data"
+on public.user_data
+for select
+using (auth.uid() = user_id);
+
+create policy "Users can insert own data"
+on public.user_data
+for insert
+with check (auth.uid() = user_id);
+
+create policy "Users can update own data"
+on public.user_data
+for update
+using (auth.uid() = user_id);
+```
+
+Then sign up in the app under **Settings → Cloud Sync** and use the same account on all devices.
+
+## 📲 Android Widgets
+
+Android widgets are **native-only** (not available in Expo Go).
+
+Steps:
+1. Build and install an APK (EAS):
+   ```bash
+   eas build -p android --profile preview
+   ```
+2. Open the app once to seed widget data.
+3. Add the widget from the launcher and choose a habit.
+
+Widget behavior:
+- Small/medium widgets
+- One habit per widget
+- Tap a square to toggle today's completion
+
+## 🔄 OTA Updates (EAS Update)
+
+After installing an OTA-enabled APK, you can push JS/asset changes without rebuilding:
+
+```bash
+eas update --channel preview --message "Your update note"
+```
+
+Notes:
+- OTA updates do **not** include native changes (Android manifest, native modules, etc.).
+- Build profiles map to channels in [eas.json](eas.json).
+
+## 🖥️ Desktop (macOS via Browser Install)
 
 ## 📱 Platform Support
 

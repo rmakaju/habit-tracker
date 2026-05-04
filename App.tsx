@@ -9,12 +9,14 @@ import {
   Alert,
   Animated,
   Platform,
+  AppState,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { HabitGrid } from './components/HabitGrid';
 import { AddHabitModal } from './components/AddHabitModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AuthModal } from './components/AuthModal';
 import { HabitList } from './components/HabitList';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import { CalendarView } from './components/CalendarView';
@@ -22,6 +24,8 @@ import { EditHabitModal } from './components/EditHabitModal';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
 import { habitStorage } from './utils/storage';
 import { NotificationService } from './utils/notifications';
+import { supabaseSync } from './utils/supabaseSync';
+import { widgetBridge } from './utils/widgetBridge';
 import { Habit, HabitCategory, AppSettings } from './types';
 import { PlatformConstants, ScreenUtils } from './utils/platformUtils';
 
@@ -38,6 +42,15 @@ function MainApp() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [animatedValues] = useState(new Map<string, Animated.Value>());
   const [isReorderMode, setIsReorderMode] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isAuthBusy, setIsAuthBusy] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(
+    habitStorage.getSyncMeta().lastSyncedAt
+  );
+  const [isSignedIn, setIsSignedIn] = useState(supabaseSync.isSignedIn());
+  const [userEmail, setUserEmail] = useState<string | null>(supabaseSync.getUserEmail());
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -67,6 +80,62 @@ function MainApp() {
     registerServiceWorker();
   }, []);
 
+  useEffect(() => {
+    let unsubscribeAuth: (() => void) | null = null;
+    const unsubscribeStorage = habitStorage.subscribe(async (payload) => {
+      if (widgetBridge.isAvailable) {
+        await widgetBridge.updateWidgetData(payload);
+        await widgetBridge.requestWidgetUpdate();
+      }
+
+      if (!supabaseSync.isSignedIn()) return;
+      try {
+        await supabaseSync.pushPayload(payload);
+        const syncedAt = new Date().toISOString();
+        habitStorage.setLastSyncedAt(syncedAt);
+        setLastSyncedAt(syncedAt);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Sync failed.';
+        setAuthError(message);
+      }
+    });
+
+    const initializeAuth = async () => {
+      await supabaseSync.initialize();
+      setIsSignedIn(supabaseSync.isSignedIn());
+      setUserEmail(supabaseSync.getUserEmail());
+      if (supabaseSync.isSignedIn()) {
+        await runSync();
+      }
+
+      unsubscribeAuth = supabaseSync.onAuthStateChange(async (session) => {
+        setIsSignedIn(Boolean(session));
+        setUserEmail(session?.user?.email ?? null);
+        if (session) {
+          await runSync();
+        }
+      });
+    };
+
+    initializeAuth();
+
+    return () => {
+      if (unsubscribeAuth) unsubscribeAuth();
+      unsubscribeStorage();
+    };
+  }, []);
+
+  useEffect(() => {
+    applyPendingWidgetToggles();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        applyPendingWidgetToggles();
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   const initializeNotifications = async () => {
     if (Platform.OS !== 'web') {
       await NotificationService.requestPermissions();
@@ -78,6 +147,100 @@ function MainApp() {
     setHabits(habitStorage.getHabits());
     setCategories(habitStorage.getCategories());
     refreshTheme(); // Refresh theme settings instead of using setSettings
+    if (widgetBridge.isAvailable) {
+      await widgetBridge.updateWidgetData(habitStorage.getSyncPayload());
+      await widgetBridge.requestWidgetUpdate();
+    }
+  };
+
+  const applyPendingWidgetToggles = async () => {
+    if (!widgetBridge.isAvailable) return;
+    const toggles = await widgetBridge.getPendingWidgetToggles();
+    if (!toggles.length) return;
+
+    toggles.forEach(toggle => {
+      habitStorage.toggleHabitEntry(toggle.habitId, toggle.date);
+    });
+
+    await widgetBridge.clearPendingWidgetToggles();
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const runSync = async () => {
+    if (!supabaseSync.isSignedIn()) return;
+
+    setIsSyncing(true);
+    setAuthError(null);
+    try {
+      const result = await supabaseSync.syncNow(habitStorage);
+      setLastSyncedAt(habitStorage.getSyncMeta().lastSyncedAt);
+      if (result.action === 'pulled') {
+        setRefreshKey(prev => prev + 1);
+        if (widgetBridge.isAvailable) {
+          await widgetBridge.updateWidgetData(habitStorage.getSyncPayload());
+          await widgetBridge.requestWidgetUpdate();
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sync failed.';
+      setAuthError(message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleOpenAuth = () => {
+    setAuthError(null);
+    setShowAuthModal(true);
+  };
+
+  const handleSignIn = async (email: string, password: string) => {
+    setIsAuthBusy(true);
+    setAuthError(null);
+    try {
+      await supabaseSync.signInWithPassword(email, password);
+      setShowAuthModal(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign in failed.';
+      setAuthError(message);
+    } finally {
+      setIsAuthBusy(false);
+    }
+  };
+
+  const handleSignUp = async (email: string, password: string) => {
+    setIsAuthBusy(true);
+    setAuthError(null);
+    try {
+      await supabaseSync.signUpWithPassword(email, password);
+      setShowAuthModal(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign up failed.';
+      setAuthError(message);
+    } finally {
+      setIsAuthBusy(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    setAuthError(null);
+    try {
+      await supabaseSync.signOut();
+      setIsSignedIn(false);
+      setUserEmail(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Sign out failed.';
+      setAuthError(message);
+    }
+  };
+
+  const handleSyncNow = async () => {
+    if (!supabaseSync.isSignedIn()) {
+      handleOpenAuth();
+      return;
+    }
+
+    await runSync();
   };
 
   const handleAddHabit = async (habitData: Omit<Habit, 'id' | 'order'>) => {
@@ -637,6 +800,23 @@ function MainApp() {
         onUpdateSettings={handleUpdateSettings}
         onExportData={() => habitStorage.exportData()}
         onImportData={(data: string) => habitStorage.importData(data)}
+        isSignedIn={isSignedIn}
+        userEmail={userEmail}
+        isSyncing={isSyncing}
+        lastSyncedAt={lastSyncedAt}
+        syncError={authError}
+        onOpenAuth={handleOpenAuth}
+        onSignOut={handleSignOut}
+        onSyncNow={handleSyncNow}
+      />
+
+      <AuthModal
+        visible={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onSignIn={handleSignIn}
+        onSignUp={handleSignUp}
+        isBusy={isAuthBusy}
+        errorMessage={authError}
       />
 
       <EditHabitModal
