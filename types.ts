@@ -13,6 +13,7 @@ export interface Habit {
   };
   goal?: number; // Target completions per period
   tags?: string[];
+  archived?: boolean; // Archive instead of delete
   order: number; // For reordering habits
   reminderTime?: string; // ISO string for reminder time
   notificationId?: string; // ID of scheduled notification

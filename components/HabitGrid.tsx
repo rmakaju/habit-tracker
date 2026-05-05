@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { AnimationUtils } from '../utils/animations';
+import { toLocalDateString } from '../utils/date';
 
 interface ContributionSquareProps {
   date: string;
@@ -75,13 +76,6 @@ export const HabitGrid: React.FC<HabitGridProps> = ({
   entries,
   onDatePress,
 }) => {
-  const toLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   // Generate last 105 days (15 weeks)
   const generateDates = () => {
     const dates = [];

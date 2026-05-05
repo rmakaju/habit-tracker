@@ -12,30 +12,31 @@ import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
 import { useTheme } from './ThemeProvider';
 import { PlatformConstants } from '../utils/platformUtils';
+import { toLocalDateString } from '../utils/date';
 
 interface HabitListProps {
   habits: Habit[];
+  archivedHabits: Habit[];
   onReorder: (habitIds: string[]) => void;
   onDeleteHabit: (habitId: string) => void;
   onEditHabit: (habit: Habit) => void;
+  onArchiveHabit: (habit: Habit) => void;
+  onUnarchiveHabit: (habit: Habit) => void;
   onToggleEntry: (habitId: string, date: string) => void;
   getHabitEntries: (habitId: string) => { [date: string]: boolean };
 }
 
 export const HabitList: React.FC<HabitListProps> = ({
   habits,
+  archivedHabits,
   onDeleteHabit,
   onEditHabit,
+  onArchiveHabit,
+  onUnarchiveHabit,
   onToggleEntry,
   getHabitEntries,
 }) => {
   const { theme } = useTheme();
-  const toLocalDateString = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
   const today = toLocalDateString(new Date());
 
   const handleDeleteHabit = (habit: Habit) => {
@@ -53,7 +54,7 @@ export const HabitList: React.FC<HabitListProps> = ({
     );
   };
 
-  const HabitItem = ({ habit }: { habit: Habit }) => {
+  const HabitItem = ({ habit, isArchived }: { habit: Habit; isArchived: boolean }) => {
     const entries = getHabitEntries(habit.id);
     const todayCompleted = entries[today] || false;
 
@@ -130,11 +131,13 @@ export const HabitList: React.FC<HabitListProps> = ({
           {weekDays.map((day) => (
             <TouchableOpacity
               key={day.date}
+              disabled={isArchived}
               style={[
                 styles.dayCell,
                 day.completed 
                   ? { backgroundColor: habit.color }
                   : styles.emptyDayCell,
+                isArchived && styles.archivedDayCell,
                 day.isToday && !day.completed && { 
                   borderColor: habit.color, 
                   borderWidth: 1.5 
@@ -160,6 +163,16 @@ export const HabitList: React.FC<HabitListProps> = ({
           >
             <Ionicons name="pencil" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.archiveButton}
+            onPress={() => (isArchived ? onUnarchiveHabit(habit) : onArchiveHabit(habit))}
+          >
+            <Ionicons
+              name={isArchived ? 'arrow-undo-outline' : 'archive-outline'}
+              size={18}
+              color={theme.textSecondary}
+            />
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.deleteButton}
@@ -179,16 +192,26 @@ export const HabitList: React.FC<HabitListProps> = ({
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Tap any day in the current week (Sun-Sat) to toggle completion</Text>
       </View>
 
-      {habits.length === 0 ? (
+      {habits.length === 0 && archivedHabits.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="leaf-outline" size={64} color={theme.textSecondary} />
           <Text style={[styles.emptyTitle, { color: theme.textSecondary }]}>No habits yet</Text>
           <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>Add your first habit to get started!</Text>
         </View>
       ) : (
-        habits.map((habit) => (
-          <HabitItem key={habit.id} habit={habit} />
-        ))
+        <>
+          {habits.map((habit) => (
+            <HabitItem key={habit.id} habit={habit} isArchived={false} />
+          ))}
+          {archivedHabits.length > 0 && (
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>Archived Habits</Text>
+            </View>
+          )}
+          {archivedHabits.map((habit) => (
+            <HabitItem key={habit.id} habit={habit} isArchived={true} />
+          ))}
+        </>
       )}
     </ScrollView>
   );
@@ -209,6 +232,16 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 4,
+  },
+  sectionHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   habitItem: {
     flexDirection: Platform.select({ android: 'column', default: 'row' }),
@@ -301,6 +334,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
   },
+  archivedDayCell: {
+    opacity: 0.5,
+  },
   dayName: {
     fontSize: Platform.select({ android: 11, default: 10 }),
     fontWeight: '500',
@@ -309,6 +345,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginLeft: 8, // Add consistent spacing from weekly grid
+  },
+  archiveButton: {
+    padding: Platform.select({ android: 12, default: 8 }),
+    marginRight: 8,
+    minWidth: Platform.select({ android: 44, default: 32 }),
+    minHeight: Platform.select({ android: 44, default: 32 }),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editButton: {
     padding: Platform.select({ android: 12, default: 8 }),

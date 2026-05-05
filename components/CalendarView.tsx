@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Habit } from '../types';
 import { useTheme } from './ThemeProvider';
 import { PlatformConstants, ScreenUtils, CalendarConfig } from '../utils/platformUtils';
+import { toLocalDateString } from '../utils/date';
 
 interface CalendarViewProps {
   habits: Habit[];
@@ -88,7 +89,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Get completed habits for a specific date
   const getCompletedHabitsForDate = (date: Date) => {
-    const dateString = date.toISOString().split('T')[0];
+    const dateString = toLocalDateString(date);
     return habits.filter(habit => {
       const entries = getHabitEntries(habit.id);
       return entries[dateString] === true;
@@ -129,14 +130,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setSelectedDate(date);
     setShowDateModal(true);
     if (onDatePress) {
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
       onDatePress(dateString);
     }
   };
 
   const getHabitsForSelectedDate = () => {
     if (!selectedDate) return [];
-    const dateString = selectedDate.toISOString().split('T')[0];
+    const dateString = toLocalDateString(selectedDate);
     return habits.map(habit => {
       const entries = getHabitEntries(habit.id);
       return {
@@ -148,7 +149,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   const handleToggleHabit = (habitId: string) => {
     if (selectedDate && onToggleHabit) {
-      const dateString = selectedDate.toISOString().split('T')[0];
+      const dateString = toLocalDateString(selectedDate);
       onToggleHabit(habitId, dateString);
     }
   };
@@ -218,7 +219,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               </View>
               <View style={[styles.calendar, { paddingHorizontal: cellPadding }] }>
                 {calendarDays.map((date, index) => {
-                  const dateString = date.toISOString().split('T')[0];
+                  const dateString = toLocalDateString(date);
                   const completed = entries[dateString] === true;
                   const isCurrentMonthDay = date.getMonth() === currentDate.getMonth();
                   return (

@@ -1,6 +1,7 @@
 import { Habit, HabitEntry, HabitStats, HabitCategory, AppSettings } from '../types';
 import { PerformanceMonitor, StorageOptimizer } from './performance';
 import { Platform } from 'react-native';
+import { toLocalDateString } from './date';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface SyncPayload {
@@ -310,6 +311,7 @@ class HabitStorage {
           ...habitData,
           id: `demo_${Date.now()}_${index}`,
           order: index,
+          archived: false,
         };
         this.habits.push(newHabit);
       });
@@ -319,7 +321,7 @@ class HabitStorage {
       for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
         const date = new Date(today);
         date.setDate(today.getDate() - dayOffset);
-        const dateString = date.toISOString().split('T')[0];
+        const dateString = toLocalDateString(date);
         
         this.habits.forEach((habit, habitIndex) => {
           // Randomly complete some habits for demo purposes
@@ -359,6 +361,7 @@ class HabitStorage {
       id: Date.now().toString(),
       order: this.habits.length,
       frequency: habit.frequency || 'daily',
+      archived: habit.archived ?? false,
     };
     this.habits.push(newHabit);
     this.saveToStorage();
@@ -441,7 +444,7 @@ class HabitStorage {
     for (let i = 0; i < 365; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
 
       if (entries[dateString]) {
         streak++;
@@ -462,7 +465,7 @@ class HabitStorage {
     for (let i = 0; i < days; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
       
       total++;
       if (entries[dateString]) {
@@ -535,7 +538,7 @@ class HabitStorage {
     for (let i = 0; i < weeks * 7; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
       
       if (entries[dateString]) {
         totalCompletions++;

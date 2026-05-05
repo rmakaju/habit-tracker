@@ -12,6 +12,7 @@ import Svg, { Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { Habit, HabitStats as HabitStatsType, AppSettings } from '../types';
 import { useTheme } from './ThemeProvider';
+import { toLocalDateString } from '../utils/date';
 
 interface AnalyticsDashboardProps {
   habits: Habit[];
@@ -357,7 +358,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     for (let i = 13; i >= 0; i--) { // Last 14 days
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = toLocalDateString(date);
       
       // Count actual completions for this date across all habits
       let count = 0;
